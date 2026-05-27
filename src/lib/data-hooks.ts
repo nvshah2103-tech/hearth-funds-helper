@@ -48,7 +48,8 @@ function q<T>(key: string, table: string, order: { col: string; asc?: boolean } 
   return useQuery({
     queryKey: [key],
     queryFn: async () => {
-      const { data, error } = await supabase.from(table).select("*").order(order.col, { ascending: order.asc ?? false });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.from as any)(table).select("*").order(order.col, { ascending: order.asc ?? false });
       if (error) throw error;
       return (data ?? []) as T[];
     },
