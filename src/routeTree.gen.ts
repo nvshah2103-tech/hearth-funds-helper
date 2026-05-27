@@ -9,38 +9,233 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedTransfersRouteImport } from './routes/_authenticated.transfers'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated.settings'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated.reports'
+import { Route as AuthenticatedInvestmentsRouteImport } from './routes/_authenticated.investments'
+import { Route as AuthenticatedIncomeRouteImport } from './routes/_authenticated.income'
+import { Route as AuthenticatedEmisRouteImport } from './routes/_authenticated.emis'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
+import { Route as AuthenticatedCreditCardsRouteImport } from './routes/_authenticated.credit-cards'
+import { Route as AuthenticatedBusinessRouteImport } from './routes/_authenticated.business'
+import { Route as AuthenticatedBankAccountsRouteImport } from './routes/_authenticated.bank-accounts'
+import { Route as AuthenticatedBankAccountsIdRouteImport } from './routes/_authenticated.bank-accounts.$id'
 
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedTransfersRoute = AuthenticatedTransfersRouteImport.update({
+  id: '/transfers',
+  path: '/transfers',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedInvestmentsRoute =
+  AuthenticatedInvestmentsRouteImport.update({
+    id: '/investments',
+    path: '/investments',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedIncomeRoute = AuthenticatedIncomeRouteImport.update({
+  id: '/income',
+  path: '/income',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedEmisRoute = AuthenticatedEmisRouteImport.update({
+  id: '/emis',
+  path: '/emis',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedCreditCardsRoute =
+  AuthenticatedCreditCardsRouteImport.update({
+    id: '/credit-cards',
+    path: '/credit-cards',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedBusinessRoute = AuthenticatedBusinessRouteImport.update({
+  id: '/business',
+  path: '/business',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedBankAccountsRoute =
+  AuthenticatedBankAccountsRouteImport.update({
+    id: '/bank-accounts',
+    path: '/bank-accounts',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedBankAccountsIdRoute =
+  AuthenticatedBankAccountsIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => AuthenticatedBankAccountsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
+  '/bank-accounts': typeof AuthenticatedBankAccountsRouteWithChildren
+  '/business': typeof AuthenticatedBusinessRoute
+  '/credit-cards': typeof AuthenticatedCreditCardsRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/emis': typeof AuthenticatedEmisRoute
+  '/income': typeof AuthenticatedIncomeRoute
+  '/investments': typeof AuthenticatedInvestmentsRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/transfers': typeof AuthenticatedTransfersRoute
+  '/bank-accounts/$id': typeof AuthenticatedBankAccountsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
+  '/bank-accounts': typeof AuthenticatedBankAccountsRouteWithChildren
+  '/business': typeof AuthenticatedBusinessRoute
+  '/credit-cards': typeof AuthenticatedCreditCardsRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/emis': typeof AuthenticatedEmisRoute
+  '/income': typeof AuthenticatedIncomeRoute
+  '/investments': typeof AuthenticatedInvestmentsRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/transfers': typeof AuthenticatedTransfersRoute
+  '/bank-accounts/$id': typeof AuthenticatedBankAccountsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
+  '/_authenticated/bank-accounts': typeof AuthenticatedBankAccountsRouteWithChildren
+  '/_authenticated/business': typeof AuthenticatedBusinessRoute
+  '/_authenticated/credit-cards': typeof AuthenticatedCreditCardsRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/emis': typeof AuthenticatedEmisRoute
+  '/_authenticated/income': typeof AuthenticatedIncomeRoute
+  '/_authenticated/investments': typeof AuthenticatedInvestmentsRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/transfers': typeof AuthenticatedTransfersRoute
+  '/_authenticated/bank-accounts/$id': typeof AuthenticatedBankAccountsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/onboarding'
+    | '/bank-accounts'
+    | '/business'
+    | '/credit-cards'
+    | '/dashboard'
+    | '/emis'
+    | '/income'
+    | '/investments'
+    | '/reports'
+    | '/settings'
+    | '/transfers'
+    | '/bank-accounts/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/login'
+    | '/onboarding'
+    | '/bank-accounts'
+    | '/business'
+    | '/credit-cards'
+    | '/dashboard'
+    | '/emis'
+    | '/income'
+    | '/investments'
+    | '/reports'
+    | '/settings'
+    | '/transfers'
+    | '/bank-accounts/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/login'
+    | '/onboarding'
+    | '/_authenticated/bank-accounts'
+    | '/_authenticated/business'
+    | '/_authenticated/credit-cards'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/emis'
+    | '/_authenticated/income'
+    | '/_authenticated/investments'
+    | '/_authenticated/reports'
+    | '/_authenticated/settings'
+    | '/_authenticated/transfers'
+    | '/_authenticated/bank-accounts/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  LoginRoute: typeof LoginRoute
+  OnboardingRoute: typeof OnboardingRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +243,135 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/transfers': {
+      id: '/_authenticated/transfers'
+      path: '/transfers'
+      fullPath: '/transfers'
+      preLoaderRoute: typeof AuthenticatedTransfersRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/investments': {
+      id: '/_authenticated/investments'
+      path: '/investments'
+      fullPath: '/investments'
+      preLoaderRoute: typeof AuthenticatedInvestmentsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/income': {
+      id: '/_authenticated/income'
+      path: '/income'
+      fullPath: '/income'
+      preLoaderRoute: typeof AuthenticatedIncomeRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/emis': {
+      id: '/_authenticated/emis'
+      path: '/emis'
+      fullPath: '/emis'
+      preLoaderRoute: typeof AuthenticatedEmisRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/credit-cards': {
+      id: '/_authenticated/credit-cards'
+      path: '/credit-cards'
+      fullPath: '/credit-cards'
+      preLoaderRoute: typeof AuthenticatedCreditCardsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/business': {
+      id: '/_authenticated/business'
+      path: '/business'
+      fullPath: '/business'
+      preLoaderRoute: typeof AuthenticatedBusinessRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/bank-accounts': {
+      id: '/_authenticated/bank-accounts'
+      path: '/bank-accounts'
+      fullPath: '/bank-accounts'
+      preLoaderRoute: typeof AuthenticatedBankAccountsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/bank-accounts/$id': {
+      id: '/_authenticated/bank-accounts/$id'
+      path: '/$id'
+      fullPath: '/bank-accounts/$id'
+      preLoaderRoute: typeof AuthenticatedBankAccountsIdRouteImport
+      parentRoute: typeof AuthenticatedBankAccountsRoute
+    }
   }
 }
 
+interface AuthenticatedBankAccountsRouteChildren {
+  AuthenticatedBankAccountsIdRoute: typeof AuthenticatedBankAccountsIdRoute
+}
+
+const AuthenticatedBankAccountsRouteChildren: AuthenticatedBankAccountsRouteChildren =
+  {
+    AuthenticatedBankAccountsIdRoute: AuthenticatedBankAccountsIdRoute,
+  }
+
+const AuthenticatedBankAccountsRouteWithChildren =
+  AuthenticatedBankAccountsRoute._addFileChildren(
+    AuthenticatedBankAccountsRouteChildren,
+  )
+
+interface AuthenticatedRouteChildren {
+  AuthenticatedBankAccountsRoute: typeof AuthenticatedBankAccountsRouteWithChildren
+  AuthenticatedBusinessRoute: typeof AuthenticatedBusinessRoute
+  AuthenticatedCreditCardsRoute: typeof AuthenticatedCreditCardsRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedEmisRoute: typeof AuthenticatedEmisRoute
+  AuthenticatedIncomeRoute: typeof AuthenticatedIncomeRoute
+  AuthenticatedInvestmentsRoute: typeof AuthenticatedInvestmentsRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedTransfersRoute: typeof AuthenticatedTransfersRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedBankAccountsRoute: AuthenticatedBankAccountsRouteWithChildren,
+  AuthenticatedBusinessRoute: AuthenticatedBusinessRoute,
+  AuthenticatedCreditCardsRoute: AuthenticatedCreditCardsRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedEmisRoute: AuthenticatedEmisRoute,
+  AuthenticatedIncomeRoute: AuthenticatedIncomeRoute,
+  AuthenticatedInvestmentsRoute: AuthenticatedInvestmentsRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedTransfersRoute: AuthenticatedTransfersRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  LoginRoute: LoginRoute,
+  OnboardingRoute: OnboardingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
