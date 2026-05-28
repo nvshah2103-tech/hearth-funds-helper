@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTransfersRouteImport } from './routes/_authenticated.transfers'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated.settings'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated.reports'
+import { Route as AuthenticatedPassbookRouteImport } from './routes/_authenticated.passbook'
 import { Route as AuthenticatedInvestmentsRouteImport } from './routes/_authenticated.investments'
 import { Route as AuthenticatedIncomeRouteImport } from './routes/_authenticated.income'
 import { Route as AuthenticatedEmisRouteImport } from './routes/_authenticated.emis'
@@ -57,6 +58,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
 const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedPassbookRoute = AuthenticatedPassbookRouteImport.update({
+  id: '/passbook',
+  path: '/passbook',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedInvestmentsRoute =
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/emis': typeof AuthenticatedEmisRoute
   '/income': typeof AuthenticatedIncomeRoute
   '/investments': typeof AuthenticatedInvestmentsRoute
+  '/passbook': typeof AuthenticatedPassbookRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/transfers': typeof AuthenticatedTransfersRoute
@@ -131,6 +138,7 @@ export interface FileRoutesByTo {
   '/emis': typeof AuthenticatedEmisRoute
   '/income': typeof AuthenticatedIncomeRoute
   '/investments': typeof AuthenticatedInvestmentsRoute
+  '/passbook': typeof AuthenticatedPassbookRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/transfers': typeof AuthenticatedTransfersRoute
@@ -149,6 +157,7 @@ export interface FileRoutesById {
   '/_authenticated/emis': typeof AuthenticatedEmisRoute
   '/_authenticated/income': typeof AuthenticatedIncomeRoute
   '/_authenticated/investments': typeof AuthenticatedInvestmentsRoute
+  '/_authenticated/passbook': typeof AuthenticatedPassbookRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/transfers': typeof AuthenticatedTransfersRoute
@@ -167,6 +176,7 @@ export interface FileRouteTypes {
     | '/emis'
     | '/income'
     | '/investments'
+    | '/passbook'
     | '/reports'
     | '/settings'
     | '/transfers'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/emis'
     | '/income'
     | '/investments'
+    | '/passbook'
     | '/reports'
     | '/settings'
     | '/transfers'
@@ -200,6 +211,7 @@ export interface FileRouteTypes {
     | '/_authenticated/emis'
     | '/_authenticated/income'
     | '/_authenticated/investments'
+    | '/_authenticated/passbook'
     | '/_authenticated/reports'
     | '/_authenticated/settings'
     | '/_authenticated/transfers'
@@ -262,6 +274,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/passbook': {
+      id: '/_authenticated/passbook'
+      path: '/passbook'
+      fullPath: '/passbook'
+      preLoaderRoute: typeof AuthenticatedPassbookRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/investments': {
@@ -345,6 +364,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedEmisRoute: typeof AuthenticatedEmisRoute
   AuthenticatedIncomeRoute: typeof AuthenticatedIncomeRoute
   AuthenticatedInvestmentsRoute: typeof AuthenticatedInvestmentsRoute
+  AuthenticatedPassbookRoute: typeof AuthenticatedPassbookRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTransfersRoute: typeof AuthenticatedTransfersRoute
@@ -358,6 +378,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedEmisRoute: AuthenticatedEmisRoute,
   AuthenticatedIncomeRoute: AuthenticatedIncomeRoute,
   AuthenticatedInvestmentsRoute: AuthenticatedInvestmentsRoute,
+  AuthenticatedPassbookRoute: AuthenticatedPassbookRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTransfersRoute: AuthenticatedTransfersRoute,
