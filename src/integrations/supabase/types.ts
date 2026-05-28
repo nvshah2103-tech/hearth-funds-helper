@@ -20,6 +20,9 @@ export type Database = {
           bank_name: string | null
           created_at: string
           id: string
+          import_password_hint: string | null
+          known_broker_account: boolean
+          last_imported_until: string | null
           name: string
           opening_balance: number
           user_id: string
@@ -29,6 +32,9 @@ export type Database = {
           bank_name?: string | null
           created_at?: string
           id?: string
+          import_password_hint?: string | null
+          known_broker_account?: boolean
+          last_imported_until?: string | null
           name: string
           opening_balance?: number
           user_id: string
@@ -38,8 +44,98 @@ export type Database = {
           bank_name?: string | null
           created_at?: string
           id?: string
+          import_password_hint?: string | null
+          known_broker_account?: boolean
+          last_imported_until?: string | null
           name?: string
           opening_balance?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      broker_connections: {
+        Row: {
+          broker_name: string
+          created_at: string
+          encrypted_api_key: string
+          encrypted_api_secret: string
+          extra_meta: Json | null
+          id: string
+          last_synced_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          broker_name: string
+          created_at?: string
+          encrypted_api_key: string
+          encrypted_api_secret: string
+          extra_meta?: Json | null
+          id?: string
+          last_synced_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          broker_name?: string
+          created_at?: string
+          encrypted_api_key?: string
+          encrypted_api_secret?: string
+          extra_meta?: Json | null
+          id?: string
+          last_synced_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      broker_transactions: {
+        Row: {
+          amount: number
+          broker_name: string
+          created_at: string
+          id: string
+          is_payout: boolean
+          linked_bank_transaction_id: string | null
+          price: number | null
+          quantity: number | null
+          raw_data: Json | null
+          segment: string | null
+          symbol: string | null
+          trade_date: string
+          transaction_type: string | null
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          broker_name: string
+          created_at?: string
+          id?: string
+          is_payout?: boolean
+          linked_bank_transaction_id?: string | null
+          price?: number | null
+          quantity?: number | null
+          raw_data?: Json | null
+          segment?: string | null
+          symbol?: string | null
+          trade_date: string
+          transaction_type?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          broker_name?: string
+          created_at?: string
+          id?: string
+          is_payout?: boolean
+          linked_bank_transaction_id?: string | null
+          price?: number | null
+          quantity?: number | null
+          raw_data?: Json | null
+          segment?: string | null
+          symbol?: string | null
+          trade_date?: string
+          transaction_type?: string | null
           user_id?: string
         }
         Relationships: []
@@ -294,6 +390,48 @@ export type Database = {
           },
         ]
       }
+      import_batches: {
+        Row: {
+          account_id: string | null
+          coverage_from_date: string | null
+          coverage_to_date: string | null
+          id: string
+          imported_at: string
+          notes: string | null
+          source_type: string
+          transactions_found: number
+          transactions_imported: number
+          transactions_skipped: number
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          coverage_from_date?: string | null
+          coverage_to_date?: string | null
+          id?: string
+          imported_at?: string
+          notes?: string | null
+          source_type: string
+          transactions_found?: number
+          transactions_imported?: number
+          transactions_skipped?: number
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          coverage_from_date?: string | null
+          coverage_to_date?: string | null
+          id?: string
+          imported_at?: string
+          notes?: string | null
+          source_type?: string
+          transactions_found?: number
+          transactions_imported?: number
+          transactions_skipped?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       incomes: {
         Row: {
           amount: number
@@ -440,6 +578,60 @@ export type Database = {
           },
         ]
       }
+      master_transactions: {
+        Row: {
+          balance: number | null
+          bank_account_id: string
+          created_at: string
+          credit: number
+          debit: number
+          description: string
+          fingerprint: string
+          id: string
+          is_broker_payout: boolean
+          linked_broker_txn_id: string | null
+          notes: string | null
+          reference_no: string | null
+          source: string
+          txn_date: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number | null
+          bank_account_id: string
+          created_at?: string
+          credit?: number
+          debit?: number
+          description: string
+          fingerprint: string
+          id?: string
+          is_broker_payout?: boolean
+          linked_broker_txn_id?: string | null
+          notes?: string | null
+          reference_no?: string | null
+          source?: string
+          txn_date: string
+          user_id: string
+        }
+        Update: {
+          balance?: number | null
+          bank_account_id?: string
+          created_at?: string
+          credit?: number
+          debit?: number
+          description?: string
+          fingerprint?: string
+          id?: string
+          is_broker_payout?: boolean
+          linked_broker_txn_id?: string | null
+          notes?: string | null
+          reference_no?: string | null
+          source?: string
+          txn_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       members: {
         Row: {
           created_at: string
@@ -482,6 +674,66 @@ export type Database = {
           family_name?: string | null
           id?: string
           onboarded?: boolean
+        }
+        Relationships: []
+      }
+      sft_entries: {
+        Row: {
+          amount: number
+          counterparty_name: string | null
+          created_at: string
+          fy: string | null
+          id: string
+          raw_data: Json | null
+          sft_type: string
+          source: string
+          txn_date: string | null
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          counterparty_name?: string | null
+          created_at?: string
+          fy?: string | null
+          id?: string
+          raw_data?: Json | null
+          sft_type: string
+          source?: string
+          txn_date?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          counterparty_name?: string | null
+          created_at?: string
+          fy?: string | null
+          id?: string
+          raw_data?: Json | null
+          sft_type?: string
+          source?: string
+          txn_date?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      transaction_fingerprints: {
+        Row: {
+          created_at: string
+          fingerprint: string
+          transaction_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fingerprint: string
+          transaction_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fingerprint?: string
+          transaction_id?: string
+          user_id?: string
         }
         Relationships: []
       }
