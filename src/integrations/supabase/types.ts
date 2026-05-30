@@ -790,7 +790,62 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      _bank_balance: { Args: { p_user_id: string }; Returns: number }
+      get_dashboard_kpis: {
+        Args: { p_fy_end: string; p_fy_start: string; p_user_id: string }
+        Returns: Json
+      }
+      get_investment_allocation: {
+        Args: { p_user_id: string }
+        Returns: {
+          investment_type: string
+          percentage_of_total: number
+          total_amount: number
+        }[]
+      }
+      get_member_summaries: {
+        Args: { p_fy_end: string; p_fy_start: string; p_user_id: string }
+        Returns: {
+          member_id: string
+          member_name: string
+          member_type: string
+          total_bank_balance: number
+          total_income_fy: number
+          total_invested_fy: number
+          total_tds_fy: number
+        }[]
+      }
+      get_monthly_cashflow: {
+        Args: { p_months: number; p_user_id: string }
+        Returns: {
+          month_date: string
+          month_label: string
+          net_surplus: number
+          total_deployed: number
+          total_income: number
+        }[]
+      }
+      get_net_worth_timeline: {
+        Args: { p_user_id: string }
+        Returns: {
+          bank_total: number
+          investment_total: number
+          month_date: string
+          net_worth_total: number
+        }[]
+      }
+      get_upcoming_events: {
+        Args: { p_days_ahead: number; p_user_id: string }
+        Returns: {
+          amount: number
+          days_until: number
+          event_date: string
+          event_name: string
+          event_type: string
+          is_overdue: boolean
+          urgency: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
