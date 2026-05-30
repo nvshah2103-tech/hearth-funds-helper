@@ -3,6 +3,16 @@ export function inr(n: number | null | undefined): string {
   return "₹" + v.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
 
+/** Compact INR for charts: ₹1.2L / ₹45K / ₹3.4Cr */
+export function inrCompact(n: number | null | undefined): string {
+  const v = Math.abs(Number(n ?? 0));
+  const sign = (n ?? 0) < 0 ? "-" : "";
+  if (v >= 1e7) return `${sign}₹${(v / 1e7).toFixed(1)}Cr`;
+  if (v >= 1e5) return `${sign}₹${(v / 1e5).toFixed(1)}L`;
+  if (v >= 1e3) return `${sign}₹${(v / 1e3).toFixed(0)}K`;
+  return `${sign}₹${v.toFixed(0)}`;
+}
+
 export function fmtDate(d: string | Date | null | undefined): string {
   if (!d) return "—";
   const dt = typeof d === "string" ? new Date(d) : d;
@@ -16,10 +26,9 @@ export function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Indian financial year for a given date (April–March). Returns { start, end, label }. */
 export function fyFor(d: Date = new Date()) {
   const y = d.getFullYear();
-  const m = d.getMonth(); // 0=Jan
+  const m = d.getMonth();
   const startYear = m >= 3 ? y : y - 1;
   return {
     start: `${startYear}-04-01`,
@@ -45,4 +54,11 @@ export function fyList(yearsBack = 5) {
 export function monthLabel(d: string | Date): string {
   const dt = typeof d === "string" ? new Date(d) : d;
   return dt.toLocaleString("en-IN", { month: "short", year: "numeric" });
+}
+
+export function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
 }
