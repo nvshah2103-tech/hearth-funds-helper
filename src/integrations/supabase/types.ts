@@ -390,15 +390,138 @@ export type Database = {
           },
         ]
       }
+      expense_categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          icon: string | null
+          id: string
+          is_default: boolean
+          name: string
+          sort_order: number
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          sort_order?: number
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          sort_order?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      expenses: {
+        Row: {
+          amount: number
+          category: string
+          cheque_number: string | null
+          created_at: string
+          date: string
+          fingerprint_hash: string | null
+          gst_number: string | null
+          id: string
+          import_batch_id: string | null
+          is_business_expense: boolean
+          is_imported: boolean
+          is_recurring: boolean
+          member_id: string | null
+          note: string | null
+          paid_from_account_id: string | null
+          paid_to_name: string | null
+          payment_method: string | null
+          receipt_number: string | null
+          receipt_url: string | null
+          recurring_end_date: string | null
+          recurring_frequency: string | null
+          tags: string[] | null
+          time: string | null
+          upi_id: string | null
+          upi_reference: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category: string
+          cheque_number?: string | null
+          created_at?: string
+          date: string
+          fingerprint_hash?: string | null
+          gst_number?: string | null
+          id?: string
+          import_batch_id?: string | null
+          is_business_expense?: boolean
+          is_imported?: boolean
+          is_recurring?: boolean
+          member_id?: string | null
+          note?: string | null
+          paid_from_account_id?: string | null
+          paid_to_name?: string | null
+          payment_method?: string | null
+          receipt_number?: string | null
+          receipt_url?: string | null
+          recurring_end_date?: string | null
+          recurring_frequency?: string | null
+          tags?: string[] | null
+          time?: string | null
+          upi_id?: string | null
+          upi_reference?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          cheque_number?: string | null
+          created_at?: string
+          date?: string
+          fingerprint_hash?: string | null
+          gst_number?: string | null
+          id?: string
+          import_batch_id?: string | null
+          is_business_expense?: boolean
+          is_imported?: boolean
+          is_recurring?: boolean
+          member_id?: string | null
+          note?: string | null
+          paid_from_account_id?: string | null
+          paid_to_name?: string | null
+          payment_method?: string | null
+          receipt_number?: string | null
+          receipt_url?: string | null
+          recurring_end_date?: string | null
+          recurring_frequency?: string | null
+          tags?: string[] | null
+          time?: string | null
+          upi_id?: string | null
+          upi_reference?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       import_batches: {
         Row: {
           account_id: string | null
+          bank_name: string | null
           coverage_from_date: string | null
+          coverage_meta: Json | null
           coverage_to_date: string | null
           id: string
           imported_at: string
           notes: string | null
           source_type: string
+          status: string
           transactions_found: number
           transactions_imported: number
           transactions_skipped: number
@@ -406,12 +529,15 @@ export type Database = {
         }
         Insert: {
           account_id?: string | null
+          bank_name?: string | null
           coverage_from_date?: string | null
+          coverage_meta?: Json | null
           coverage_to_date?: string | null
           id?: string
           imported_at?: string
           notes?: string | null
           source_type: string
+          status?: string
           transactions_found?: number
           transactions_imported?: number
           transactions_skipped?: number
@@ -419,12 +545,15 @@ export type Database = {
         }
         Update: {
           account_id?: string | null
+          bank_name?: string | null
           coverage_from_date?: string | null
+          coverage_meta?: Json | null
           coverage_to_date?: string | null
           id?: string
           imported_at?: string
           notes?: string | null
           source_type?: string
+          status?: string
           transactions_found?: number
           transactions_imported?: number
           transactions_skipped?: number
@@ -587,8 +716,11 @@ export type Database = {
           debit: number
           description: string
           fingerprint: string
+          fingerprint_hash: string | null
           id: string
+          import_batch_id: string | null
           is_broker_payout: boolean
+          is_imported: boolean
           linked_broker_txn_id: string | null
           notes: string | null
           reference_no: string | null
@@ -604,8 +736,11 @@ export type Database = {
           debit?: number
           description: string
           fingerprint: string
+          fingerprint_hash?: string | null
           id?: string
+          import_batch_id?: string | null
           is_broker_payout?: boolean
+          is_imported?: boolean
           linked_broker_txn_id?: string | null
           notes?: string | null
           reference_no?: string | null
@@ -621,8 +756,11 @@ export type Database = {
           debit?: number
           description?: string
           fingerprint?: string
+          fingerprint_hash?: string | null
           id?: string
+          import_batch_id?: string | null
           is_broker_payout?: boolean
+          is_imported?: boolean
           linked_broker_txn_id?: string | null
           notes?: string | null
           reference_no?: string | null

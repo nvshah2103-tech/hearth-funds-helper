@@ -1,0 +1,615 @@
+import { useEffect, useRef, useState } from "react";
+import { Plus, X, Zap, ClipboardList, Check } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useMembers, useBankAccounts, useCreditCards, useEmis, useInvestments } from "@/lib/data-hooks";
+import { useExpenseCategories, DEFAULT_CATEGORIES } from "@/lib/expense-hooks";
+import { today } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+type Tab = "expense" | "income" | "investment" | "transfer" | "cc" | "emi";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "expense", label: "Expense" },
+  { id: "income", label: "Income" },
+  { id: "investment", label: "Investment" },
+  { id: "transfer", label: "Transfer" },
+  { id: "cc", label: "CC Bill" },
+  { id: "emi", label: "EMI" },
+];
+
+export function QuickEntryFab() {
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>("expense");
+  const isMobile = useIsMobile();
+
+  const Btn = (
+    <button
+      aria-label="Quick entry"
+      onClick={() => setOpen(true)}
+      className={cn(
+        "fixed z-[9999] rounded-full bg-primary text-primary-foreground",
+        "flex items-center justify-center transition-transform",
+        "shadow-[0_8px_32px_rgba(59,130,246,0.5)] hover:scale-110 active:scale-95",
+        "bottom-6 right-5 h-13 w-13 md:bottom-8 md:right-8 md:h-14 md:w-14",
+      )}
+      style={{ width: isMobile ? 52 : 56, height: isMobile ? 52 : 56 }}
+    >
+      <Plus className="h-6 w-6" />
+    </button>
+  );
+
+  const Body = (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-4 py-3 border-b">
+        <div className="font-semibold">Quick Entry</div>
+        <Button variant="ghost" size="icon" onClick={() => setOpen(false)}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="flex-1 flex flex-col min-h-0">
+        <div className="border-b overflow-x-auto">
+          <TabsList className="bg-transparent rounded-none h-auto p-0 px-2">
+            {TABS.map((t) => (
+              <TabsTrigger
+                key={t.id}
+                value={t.id}
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none px-4 py-3"
+              >
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          <TabsContent value="expense" className="m-0"><ExpenseForm onDone={() => setOpen(false)} /></TabsContent>
+          <TabsContent value="income" className="m-0"><IncomeQuick onDone={() => setOpen(false)} /></TabsContent>
+          <TabsContent value="investment" className="m-0"><InvestmentQuick onDone={() => setOpen(false)} /></TabsContent>
+          <TabsContent value="transfer" className="m-0"><TransferQuick onDone={() => setOpen(false)} /></TabsContent>
+          <TabsContent value="cc" className="m-0"><CCBillQuick onDone={() => setOpen(false)} /></TabsContent>
+          <TabsContent value="emi" className="m-0"><EmiQuick onDone={() => setOpen(false)} /></TabsContent>
+        </div>
+      </Tabs>
+    </div>
+  );
+
+  return (
+    <>
+      {Btn}
+      {isMobile ? (
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetContent side="bottom" className="h-[85vh] p-0 flex flex-col">{Body}</SheetContent>
+        </Sheet>
+      ) : (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent className="max-w-xl p-0 h-[640px] flex flex-col gap-0">{Body}</DialogContent>
+        </Dialog>
+      )}
+    </>
+  );
+}
+
+/* ---------------- EXPENSE FORM (Quick + Detailed) ---------------- */
+function ExpenseForm({ onDone }: { onDone: () => void }) {
+  const [mode, setMode] = useState<"quick" | "detailed">("quick");
+  const qc = useQueryClient();
+  const cats = useExpenseCategories();
+  const accts = useBankAccounts();
+  const members = useMembers();
+
+  const [amount, setAmount] = useState("");
+  const [category, setCategory] = useState("");
+  const [paidFrom, setPaidFrom] = useState<string>("cash");
+  const [date, setDate] = useState(today());
+  const [note, setNote] = useState("");
+  // detailed
+  const [time, setTime] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const [paidTo, setPaidTo] = useState("");
+  const [upiId, setUpiId] = useState("");
+  const [upiRef, setUpiRef] = useState("");
+  const [chequeNo, setChequeNo] = useState("");
+  const [tags, setTags] = useState("");
+  const [recurring, setRecurring] = useState(false);
+  const [freq, setFreq] = useState("Monthly");
+  const [memberId, setMemberId] = useState<string>("");
+  const [isBusiness, setIsBusiness] = useState(false);
+  const [gst, setGst] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const amountRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { amountRef.current?.focus(); }, []);
+
+  const categoryList = (cats.data ?? []).map((c) => c.name);
+  const allCats = categoryList.length ? categoryList : [...DEFAULT_CATEGORIES];
+
+  async function save() {
+    if (!amount || Number(amount) <= 0) { toast.error("Amount is required"); return; }
+    if (!category) { toast.error("Pick a category"); return; }
+    setBusy(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setBusy(false); return; }
+    const payload = {
+      user_id: user.id, date, time: mode === "detailed" && time ? time : null,
+      amount: Number(amount), category,
+      paid_from_account_id: paidFrom === "cash" ? null : paidFrom,
+      payment_method: mode === "detailed" ? (paymentMethod || null) : null,
+      paid_to_name: mode === "detailed" ? (paidTo || null) : null,
+      upi_id: mode === "detailed" && paymentMethod === "UPI" ? (upiId || null) : null,
+      upi_reference: mode === "detailed" && paymentMethod === "UPI" ? (upiRef || null) : null,
+      cheque_number: mode === "detailed" && paymentMethod === "Cheque" ? (chequeNo || null) : null,
+      note: note || null,
+      tags: mode === "detailed" && tags ? tags.split(",").map((s) => s.trim()).filter(Boolean) : null,
+      is_recurring: mode === "detailed" ? recurring : false,
+      recurring_frequency: mode === "detailed" && recurring ? freq : null,
+      member_id: mode === "detailed" && memberId ? memberId : null,
+      is_business_expense: mode === "detailed" ? isBusiness : false,
+      gst_number: mode === "detailed" && gst ? gst : null,
+      is_imported: false,
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from as any)("expenses").insert(payload);
+    if (error) { toast.error(error.message); setBusy(false); return; }
+    qc.invalidateQueries({ queryKey: ["expenses"] });
+    setSaved(true);
+    setTimeout(() => { setSaved(false); onDone(); resetAll(); }, 800);
+    setBusy(false);
+  }
+
+  function resetAll() {
+    setAmount(""); setCategory(""); setPaidFrom("cash"); setNote("");
+    setTime(""); setPaymentMethod(""); setPaidTo(""); setUpiId(""); setUpiRef("");
+    setChequeNo(""); setTags(""); setRecurring(false); setMemberId(""); setIsBusiness(false); setGst("");
+  }
+
+  if (saved) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-success">
+        <div className="rounded-full bg-success/10 p-4 mb-3"><Check className="h-8 w-8" /></div>
+        <p className="font-semibold">Saved</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <Button type="button" variant={mode === "quick" ? "default" : "outline"} size="sm" onClick={() => setMode("quick")} className="flex-1">
+          <Zap className="h-4 w-4 mr-1" /> Quick
+        </Button>
+        <Button type="button" variant={mode === "detailed" ? "default" : "outline"} size="sm" onClick={() => setMode("detailed")} className="flex-1">
+          <ClipboardList className="h-4 w-4 mr-1" /> Detailed
+        </Button>
+      </div>
+
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-3xl text-muted-foreground">₹</span>
+        <Input
+          ref={amountRef}
+          type="number"
+          inputMode="decimal"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="0"
+          className="text-3xl h-16 pl-10 font-mono"
+        />
+      </div>
+
+      <div>
+        <Label className="text-xs">Category</Label>
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+          {allCats.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setCategory(c)}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-sm whitespace-nowrap border transition-colors shrink-0",
+                category === c ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-accent",
+              )}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">Paid From</Label>
+          <Select value={paidFrom} onValueChange={setPaidFrom}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cash">Cash</SelectItem>
+              {(accts.data ?? []).map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-xs">Date</Label>
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+      </div>
+
+      <div>
+        <Label className="text-xs">Note</Label>
+        <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was this for? (optional)" />
+      </div>
+
+      {mode === "detailed" && (
+        <div className="space-y-3 pt-2 border-t">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Time</Label>
+              <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Member</Label>
+              <Select value={memberId} onValueChange={setMemberId}>
+                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>{(members.data ?? []).map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Payment Method</Label>
+            <div className="flex flex-wrap gap-2">
+              {["UPI", "Cash", "Debit Card", "NEFT/IMPS", "Cheque", "Other"].map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPaymentMethod(p)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-xs border transition-colors",
+                    paymentMethod === p ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-accent",
+                  )}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Paid To (person/merchant)</Label>
+            <Input value={paidTo} onChange={(e) => setPaidTo(e.target.value)} />
+          </div>
+          {paymentMethod === "UPI" && (
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs">UPI ID</Label><Input value={upiId} onChange={(e) => setUpiId(e.target.value)} placeholder="name@bank" /></div>
+              <div><Label className="text-xs">UPI Ref / Txn ID</Label><Input value={upiRef} onChange={(e) => setUpiRef(e.target.value)} /></div>
+            </div>
+          )}
+          {paymentMethod === "Cheque" && (
+            <div><Label className="text-xs">Cheque Number</Label><Input value={chequeNo} onChange={(e) => setChequeNo(e.target.value)} /></div>
+          )}
+          <div><Label className="text-xs">Tags (comma separated)</Label><Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="household, monthly" /></div>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Recurring?</Label>
+            <Switch checked={recurring} onCheckedChange={setRecurring} />
+          </div>
+          {recurring && (
+            <Select value={freq} onValueChange={setFreq}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Daily">Daily</SelectItem>
+                <SelectItem value="Weekly">Weekly</SelectItem>
+                <SelectItem value="Monthly">Monthly</SelectItem>
+                <SelectItem value="Yearly">Yearly</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Business expense?</Label>
+            <Switch checked={isBusiness} onCheckedChange={setIsBusiness} />
+          </div>
+          {isBusiness && (
+            <div><Label className="text-xs">GST / Receipt No</Label><Input value={gst} onChange={(e) => setGst(e.target.value)} /></div>
+          )}
+        </div>
+      )}
+
+      <Button onClick={save} disabled={busy} className="w-full h-12 text-base">
+        {busy ? "Saving…" : `Save ${mode === "quick" ? "Expense" : "Detailed Expense"}`}
+      </Button>
+    </div>
+  );
+}
+
+/* ---------------- INCOME QUICK ---------------- */
+function IncomeQuick({ onDone }: { onDone: () => void }) {
+  const qc = useQueryClient();
+  const members = useMembers();
+  const accts = useBankAccounts();
+  const [date, setDate] = useState(today());
+  const [type, setType] = useState("Salary");
+  const [amount, setAmount] = useState("");
+  const [tds, setTds] = useState("0");
+  const [memberId, setMemberId] = useState("");
+  const [bankId, setBankId] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const net = Math.max(0, (Number(amount) || 0) - (Number(tds) || 0));
+
+  async function save() {
+    if (!amount || !bankId) { toast.error("Amount and account required"); return; }
+    setBusy(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from("incomes").insert({
+      user_id: user.id, date, member_id: memberId || null, income_type: type,
+      amount: Number(amount), tds: Number(tds) || 0, net_amount: net,
+      bank_account_id: bankId, notes: note || null,
+    });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["incomes"] });
+    toast.success("Income added"); onDone();
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div><Label className="text-xs">Amount</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+        <div><Label className="text-xs">Type</Label>
+          <Select value={type} onValueChange={setType}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{["Salary","Business Income","FD Maturity","Dividend","Interest","Other"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div><Label className="text-xs">Member</Label>
+          <Select value={memberId} onValueChange={setMemberId}>
+            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+            <SelectContent>{(members.data ?? []).map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div><Label className="text-xs">Received In</Label>
+          <Select value={bankId} onValueChange={setBankId}>
+            <SelectTrigger><SelectValue placeholder="Bank account" /></SelectTrigger>
+            <SelectContent>{(accts.data ?? []).map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div><Label className="text-xs">Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+        <div><Label className="text-xs">TDS</Label><Input type="number" value={tds} onChange={(e) => setTds(e.target.value)} /></div>
+      </div>
+      <div><Label className="text-xs">Note</Label><Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} /></div>
+      <Button onClick={save} disabled={busy} className="w-full h-12">{busy ? "Saving…" : "Save Income"}</Button>
+    </div>
+  );
+}
+
+/* ---------------- INVESTMENT QUICK ---------------- */
+function InvestmentQuick({ onDone }: { onDone: () => void }) {
+  const qc = useQueryClient();
+  const accts = useBankAccounts();
+  const [type, setType] = useState("FD");
+  const [institution, setInstitution] = useState("");
+  const [amount, setAmount] = useState("");
+  const [source, setSource] = useState("Fresh Income");
+  const [bankId, setBankId] = useState("");
+  const [maturityDate, setMaturityDate] = useState("");
+  const [date, setDate] = useState(today());
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    if (!amount) { toast.error("Amount required"); return; }
+    setBusy(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from("investments").insert({
+      user_id: user.id, date, investment_type: type, institution: institution || null,
+      amount: Number(amount), source_of_funds: source, bank_account_id: bankId || null,
+      maturity_date: maturityDate || null, status: "Active", notes: note || null,
+    });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["investments"] });
+    toast.success("Investment added"); onDone();
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div><Label className="text-xs">Type</Label>
+          <Select value={type} onValueChange={setType}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{["FD","RD","Mutual Fund","Stock","PPF","NPS","Bond","Other"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div><Label className="text-xs">Institution</Label><Input value={institution} onChange={(e) => setInstitution(e.target.value)} /></div>
+        <div><Label className="text-xs">Amount</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+        <div><Label className="text-xs">Source</Label>
+          <Select value={source} onValueChange={setSource}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{["Fresh Income","Reinvested","Partial Reinvested"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div><Label className="text-xs">Paid From</Label>
+          <Select value={bankId} onValueChange={setBankId}>
+            <SelectTrigger><SelectValue placeholder="Bank" /></SelectTrigger>
+            <SelectContent>{(accts.data ?? []).map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div><Label className="text-xs">Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+        <div className="col-span-2"><Label className="text-xs">Maturity Date</Label><Input type="date" value={maturityDate} onChange={(e) => setMaturityDate(e.target.value)} /></div>
+      </div>
+      <div><Label className="text-xs">Note</Label><Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} /></div>
+      <Button onClick={save} disabled={busy} className="w-full h-12">{busy ? "Saving…" : "Save Investment"}</Button>
+    </div>
+  );
+}
+
+/* ---------------- TRANSFER QUICK ---------------- */
+function TransferQuick({ onDone }: { onDone: () => void }) {
+  const qc = useQueryClient();
+  const accts = useBankAccounts();
+  const [fromId, setFromId] = useState("");
+  const [toId, setToId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(today());
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    if (!fromId || !toId || !amount) { toast.error("All fields required"); return; }
+    if (fromId === toId) { toast.error("From and To must differ"); return; }
+    setBusy(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from("transfers").insert({
+      user_id: user.id, date, from_account_id: fromId, to_account_id: toId,
+      amount: Number(amount), reason: reason || null,
+    });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["transfers"] });
+    toast.success("Transfer saved"); onDone();
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="text-xs bg-amber-500/10 text-amber-700 dark:text-amber-400 p-3 rounded-md">
+        Transfers between your own accounts will NOT be counted as income or expense.
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><Label className="text-xs">From</Label>
+          <Select value={fromId} onValueChange={setFromId}>
+            <SelectTrigger><SelectValue placeholder="Account" /></SelectTrigger>
+            <SelectContent>{(accts.data ?? []).map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div><Label className="text-xs">To</Label>
+          <Select value={toId} onValueChange={setToId}>
+            <SelectTrigger><SelectValue placeholder="Account" /></SelectTrigger>
+            <SelectContent>{(accts.data ?? []).map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div><Label className="text-xs">Amount</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+        <div><Label className="text-xs">Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+      </div>
+      <div><Label className="text-xs">Reason</Label><Input value={reason} onChange={(e) => setReason(e.target.value)} /></div>
+      <Button onClick={save} disabled={busy} className="w-full h-12">{busy ? "Saving…" : "Save Transfer"}</Button>
+    </div>
+  );
+}
+
+/* ---------------- CC BILL QUICK ---------------- */
+function CCBillQuick({ onDone }: { onDone: () => void }) {
+  const qc = useQueryClient();
+  const cards = useCreditCards();
+  const accts = useBankAccounts();
+  const [cardId, setCardId] = useState("");
+  const [billingMonth, setBillingMonth] = useState(today().slice(0, 7) + "-01");
+  const [total, setTotal] = useState("");
+  const [bankId, setBankId] = useState("");
+  const [paymentDate, setPaymentDate] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    if (!cardId || !total) { toast.error("Card and amount required"); return; }
+    setBusy(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from("credit_card_bills").insert({
+      user_id: user.id, card_id: cardId, billing_month: billingMonth,
+      total_bill: Number(total), bank_account_id: bankId || null,
+      payment_date: paymentDate || null,
+      payment_amount: paymentDate ? Number(total) : 0, notes: note || null,
+    });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["cc_bills"] });
+    toast.success("CC bill saved"); onDone();
+  }
+
+  return (
+    <div className="space-y-3">
+      <div><Label className="text-xs">Card</Label>
+        <Select value={cardId} onValueChange={setCardId}>
+          <SelectTrigger><SelectValue placeholder="Select card" /></SelectTrigger>
+          <SelectContent>{(cards.data ?? []).map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+        </Select>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><Label className="text-xs">Billing Month</Label><Input type="month" value={billingMonth.slice(0,7)} onChange={(e) => setBillingMonth(e.target.value + "-01")} /></div>
+        <div><Label className="text-xs">Total Bill</Label><Input type="number" value={total} onChange={(e) => setTotal(e.target.value)} /></div>
+        <div><Label className="text-xs">Paid From</Label>
+          <Select value={bankId} onValueChange={setBankId}>
+            <SelectTrigger><SelectValue placeholder="Bank" /></SelectTrigger>
+            <SelectContent>{(accts.data ?? []).map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div><Label className="text-xs">Payment Date</Label><Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} /></div>
+      </div>
+      <div><Label className="text-xs">Note</Label><Input value={note} onChange={(e) => setNote(e.target.value)} /></div>
+      <Button onClick={save} disabled={busy} className="w-full h-12">{busy ? "Saving…" : "Save CC Bill"}</Button>
+    </div>
+  );
+}
+
+/* ---------------- EMI QUICK ---------------- */
+function EmiQuick({ onDone }: { onDone: () => void }) {
+  const qc = useQueryClient();
+  const emis = useEmis();
+  const accts = useBankAccounts();
+  const [emiId, setEmiId] = useState("");
+  const [paidDate, setPaidDate] = useState(today());
+  const [amount, setAmount] = useState("");
+  const [bankId, setBankId] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    if (!emiId || !amount) { toast.error("Loan and amount required"); return; }
+    setBusy(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from("emi_payments").insert({
+      user_id: user.id, emi_id: emiId, paid_date: paidDate,
+      amount: Number(amount), bank_account_id: bankId || null, notes: note || null,
+    });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["emi_payments"] });
+    toast.success("EMI marked paid"); onDone();
+  }
+
+  // prefill amount from selected loan
+  const selectedEmi = (emis.data ?? []).find((e) => e.id === emiId);
+  useEffect(() => { if (selectedEmi && !amount) setAmount(String(selectedEmi.emi_amount)); }, [selectedEmi]); // eslint-disable-line
+
+  return (
+    <div className="space-y-3">
+      <div><Label className="text-xs">Loan</Label>
+        <Select value={emiId} onValueChange={setEmiId}>
+          <SelectTrigger><SelectValue placeholder="Select EMI" /></SelectTrigger>
+          <SelectContent>{(emis.data ?? []).filter((e) => e.status === "Active").map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}</SelectContent>
+        </Select>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><Label className="text-xs">Date</Label><Input type="date" value={paidDate} onChange={(e) => setPaidDate(e.target.value)} /></div>
+        <div><Label className="text-xs">Amount</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+        <div className="col-span-2"><Label className="text-xs">Paid From</Label>
+          <Select value={bankId} onValueChange={setBankId}>
+            <SelectTrigger><SelectValue placeholder="Bank" /></SelectTrigger>
+            <SelectContent>{(accts.data ?? []).map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div><Label className="text-xs">Note</Label><Input value={note} onChange={(e) => setNote(e.target.value)} /></div>
+      <Button onClick={save} disabled={busy} className="w-full h-12">{busy ? "Saving…" : "Mark EMI Paid"}</Button>
+    </div>
+  );
+}

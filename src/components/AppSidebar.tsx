@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, BookOpen, TrendingUp, PiggyBank, Building2, CreditCard,
-  Landmark, ArrowLeftRight, Briefcase, FileBarChart, Settings, Wallet, LogOut,
+  Landmark, ArrowLeftRight, Briefcase, FileBarChart, Settings, Wallet, LogOut, Receipt,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 const items = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/passbook", label: "Passbook", icon: BookOpen },
+  { to: "/expenses", label: "Expenses", icon: Receipt },
   { to: "/income", label: "Income", icon: TrendingUp },
   { to: "/investments", label: "Investments", icon: PiggyBank },
   { to: "/bank-accounts", label: "Bank Accounts", icon: Building2 },
