@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { QuickEntryFab } from "@/components/QuickEntryFab";
 import { Wallet } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated")({ component: AuthLayout });
@@ -47,6 +48,7 @@ function AuthLayout() {
             <Outlet />
           </main>
         </div>
+        <QuickEntryFab />
       </div>
     </SidebarProvider>
   );
