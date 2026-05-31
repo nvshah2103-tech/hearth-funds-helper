@@ -19,6 +19,7 @@ import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPassbookRouteImport } from './routes/_authenticated.passbook'
 import { Route as AuthenticatedInvestmentsRouteImport } from './routes/_authenticated.investments'
 import { Route as AuthenticatedIncomeRouteImport } from './routes/_authenticated.income'
+import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated.expenses'
 import { Route as AuthenticatedEmisRouteImport } from './routes/_authenticated.emis'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedCreditCardsRouteImport } from './routes/_authenticated.credit-cards'
@@ -76,6 +77,11 @@ const AuthenticatedIncomeRoute = AuthenticatedIncomeRouteImport.update({
   path: '/income',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedExpensesRoute = AuthenticatedExpensesRouteImport.update({
+  id: '/expenses',
+  path: '/expenses',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedEmisRoute = AuthenticatedEmisRouteImport.update({
   id: '/emis',
   path: '/emis',
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/credit-cards': typeof AuthenticatedCreditCardsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/emis': typeof AuthenticatedEmisRoute
+  '/expenses': typeof AuthenticatedExpensesRoute
   '/income': typeof AuthenticatedIncomeRoute
   '/investments': typeof AuthenticatedInvestmentsRoute
   '/passbook': typeof AuthenticatedPassbookRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/credit-cards': typeof AuthenticatedCreditCardsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/emis': typeof AuthenticatedEmisRoute
+  '/expenses': typeof AuthenticatedExpensesRoute
   '/income': typeof AuthenticatedIncomeRoute
   '/investments': typeof AuthenticatedInvestmentsRoute
   '/passbook': typeof AuthenticatedPassbookRoute
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   '/_authenticated/credit-cards': typeof AuthenticatedCreditCardsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/emis': typeof AuthenticatedEmisRoute
+  '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
   '/_authenticated/income': typeof AuthenticatedIncomeRoute
   '/_authenticated/investments': typeof AuthenticatedInvestmentsRoute
   '/_authenticated/passbook': typeof AuthenticatedPassbookRoute
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/credit-cards'
     | '/dashboard'
     | '/emis'
+    | '/expenses'
     | '/income'
     | '/investments'
     | '/passbook'
@@ -191,6 +201,7 @@ export interface FileRouteTypes {
     | '/credit-cards'
     | '/dashboard'
     | '/emis'
+    | '/expenses'
     | '/income'
     | '/investments'
     | '/passbook'
@@ -209,6 +220,7 @@ export interface FileRouteTypes {
     | '/_authenticated/credit-cards'
     | '/_authenticated/dashboard'
     | '/_authenticated/emis'
+    | '/_authenticated/expenses'
     | '/_authenticated/income'
     | '/_authenticated/investments'
     | '/_authenticated/passbook'
@@ -297,6 +309,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIncomeRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/expenses': {
+      id: '/_authenticated/expenses'
+      path: '/expenses'
+      fullPath: '/expenses'
+      preLoaderRoute: typeof AuthenticatedExpensesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/emis': {
       id: '/_authenticated/emis'
       path: '/emis'
@@ -362,6 +381,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedCreditCardsRoute: typeof AuthenticatedCreditCardsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedEmisRoute: typeof AuthenticatedEmisRoute
+  AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
   AuthenticatedIncomeRoute: typeof AuthenticatedIncomeRoute
   AuthenticatedInvestmentsRoute: typeof AuthenticatedInvestmentsRoute
   AuthenticatedPassbookRoute: typeof AuthenticatedPassbookRoute
@@ -376,6 +396,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCreditCardsRoute: AuthenticatedCreditCardsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedEmisRoute: AuthenticatedEmisRoute,
+  AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
   AuthenticatedIncomeRoute: AuthenticatedIncomeRoute,
   AuthenticatedInvestmentsRoute: AuthenticatedInvestmentsRoute,
   AuthenticatedPassbookRoute: AuthenticatedPassbookRoute,
@@ -397,3 +418,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
