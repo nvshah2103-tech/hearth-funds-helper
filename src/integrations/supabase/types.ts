@@ -152,6 +152,10 @@ export type Database = {
           net_received: number
           notes: string | null
           tds: number
+          tds_expected: number | null
+          tds_rate: number | null
+          tds_section: string | null
+          tds_section_confirmed: boolean
           user_id: string
         }
         Insert: {
@@ -165,6 +169,10 @@ export type Database = {
           net_received: number
           notes?: string | null
           tds?: number
+          tds_expected?: number | null
+          tds_rate?: number | null
+          tds_section?: string | null
+          tds_section_confirmed?: boolean
           user_id: string
         }
         Update: {
@@ -178,6 +186,10 @@ export type Database = {
           net_received?: number
           notes?: string | null
           tds?: number
+          tds_expected?: number | null
+          tds_rate?: number | null
+          tds_section?: string | null
+          tds_section_confirmed?: boolean
           user_id?: string
         }
         Relationships: [
@@ -567,6 +579,7 @@ export type Database = {
           bank_account_id: string | null
           created_at: string
           date: string
+          gross_amount: number | null
           id: string
           income_type: string
           linked_investment_id: string | null
@@ -574,6 +587,9 @@ export type Database = {
           net_amount: number
           notes: string | null
           tds: number
+          tds_rate: number | null
+          tds_section: string | null
+          tds_section_confirmed: boolean
           user_id: string
         }
         Insert: {
@@ -581,6 +597,7 @@ export type Database = {
           bank_account_id?: string | null
           created_at?: string
           date: string
+          gross_amount?: number | null
           id?: string
           income_type: string
           linked_investment_id?: string | null
@@ -588,6 +605,9 @@ export type Database = {
           net_amount: number
           notes?: string | null
           tds?: number
+          tds_rate?: number | null
+          tds_section?: string | null
+          tds_section_confirmed?: boolean
           user_id: string
         }
         Update: {
@@ -595,6 +615,7 @@ export type Database = {
           bank_account_id?: string | null
           created_at?: string
           date?: string
+          gross_amount?: number | null
           id?: string
           income_type?: string
           linked_investment_id?: string | null
@@ -602,6 +623,9 @@ export type Database = {
           net_amount?: number
           notes?: string | null
           tds?: number
+          tds_rate?: number | null
+          tds_section?: string | null
+          tds_section_confirmed?: boolean
           user_id?: string
         }
         Relationships: [
@@ -631,57 +655,108 @@ export type Database = {
       investments: {
         Row: {
           amount: number
+          auto_renewal: string | null
           bank_account_id: string | null
+          branch_name: string | null
+          compounding_type: string | null
           created_at: string
           date: string
+          exchange: string | null
           expected_maturity_amount: number | null
+          fd_number: string | null
+          fd_type: string | null
+          folio_number: string | null
           fresh_topup_amount: number | null
+          fund_type: string | null
           id: string
           institution: string | null
           investment_type: string
+          isin: string | null
           linked_maturity_id: string | null
+          matured_date: string | null
           maturity_date: string | null
           member_id: string | null
+          nav_at_purchase: number | null
+          nomination_details: string | null
           notes: string | null
+          purity: string | null
           source_of_funds: string
           status: string
+          symbol: string | null
+          tenure_months: number | null
+          units: number | null
           user_id: string
+          weight_grams: number | null
         }
         Insert: {
           amount: number
+          auto_renewal?: string | null
           bank_account_id?: string | null
+          branch_name?: string | null
+          compounding_type?: string | null
           created_at?: string
           date: string
+          exchange?: string | null
           expected_maturity_amount?: number | null
+          fd_number?: string | null
+          fd_type?: string | null
+          folio_number?: string | null
           fresh_topup_amount?: number | null
+          fund_type?: string | null
           id?: string
           institution?: string | null
           investment_type: string
+          isin?: string | null
           linked_maturity_id?: string | null
+          matured_date?: string | null
           maturity_date?: string | null
           member_id?: string | null
+          nav_at_purchase?: number | null
+          nomination_details?: string | null
           notes?: string | null
+          purity?: string | null
           source_of_funds?: string
           status?: string
+          symbol?: string | null
+          tenure_months?: number | null
+          units?: number | null
           user_id: string
+          weight_grams?: number | null
         }
         Update: {
           amount?: number
+          auto_renewal?: string | null
           bank_account_id?: string | null
+          branch_name?: string | null
+          compounding_type?: string | null
           created_at?: string
           date?: string
+          exchange?: string | null
           expected_maturity_amount?: number | null
+          fd_number?: string | null
+          fd_type?: string | null
+          folio_number?: string | null
           fresh_topup_amount?: number | null
+          fund_type?: string | null
           id?: string
           institution?: string | null
           investment_type?: string
+          isin?: string | null
           linked_maturity_id?: string | null
+          matured_date?: string | null
           maturity_date?: string | null
           member_id?: string | null
+          nav_at_purchase?: number | null
+          nomination_details?: string | null
           notes?: string | null
+          purity?: string | null
           source_of_funds?: string
           status?: string
+          symbol?: string | null
+          tenure_months?: number | null
+          units?: number | null
           user_id?: string
+          weight_grams?: number | null
         }
         Relationships: [
           {
