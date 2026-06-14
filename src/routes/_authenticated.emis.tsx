@@ -79,16 +79,21 @@ function EmisPage() {
               <TableHead className="text-right">Amount</TableHead><TableHead>From</TableHead><TableHead></TableHead>
             </TableRow></TableHeader>
             <TableBody>
-              {(pays.data ?? []).map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell>{fmtDate(p.paid_date)}</TableCell>
-                  <TableCell>{emis.data?.find((e) => e.id === p.emi_id)?.name ?? "—"}</TableCell>
-                  <TableCell className="text-right font-mono">{inr(p.amount)}</TableCell>
-                  <TableCell>{acctName(p.bank_account_id)}</TableCell>
-                  <TableCell className="text-right"><DeleteRow table="emi_payments" id={p.id} onDeleted={() => qc.invalidateQueries({ queryKey: ["emi_payments"] })} /></TableCell>
-                </TableRow>
-              ))}
-              {!pays.data?.length && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No payments logged.</TableCell></TableRow>}
+                {(pays.data ?? []).map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell>{fmtDate(p.paid_date)}</TableCell>
+                    <TableCell>{emis.data?.find((e) => e.id === p.emi_id)?.name ?? "—"}</TableCell>
+                    <TableCell className="text-right font-mono">{inr(p.amount)}</TableCell>
+                    <TableCell>{acctName(p.bank_account_id)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end">
+                        <EditEmiPaymentButton payment={p} />
+                        <ConfirmDeleteRow table="emi_payments" id={p.id} amount={Number(p.amount)} label="EMI payment" onDeleted={() => qc.invalidateQueries({ queryKey: ["emi_payments"] })} />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!pays.data?.length && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No payments logged.</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
