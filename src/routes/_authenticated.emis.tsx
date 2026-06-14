@@ -13,6 +13,9 @@ import { Plus, CheckCircle } from "lucide-react";
 import { useEmis, useEmiPayments, useBankAccounts } from "@/lib/data-hooks";
 import { inr, fmtDate, today } from "@/lib/format";
 import { Field, DeleteRow } from "@/components/forms/IncomeForm";
+import { ConfirmDeleteRow, ConfirmChangesDialog, diffFields } from "@/components/forms/_shared";
+import { Pencil } from "lucide-react";
+import { ReactNode } from "react";
 
 export const Route = createFileRoute("/_authenticated/emis")({ component: EmisPage });
 
