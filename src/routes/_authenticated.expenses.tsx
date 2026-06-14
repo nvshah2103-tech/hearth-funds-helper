@@ -1,17 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { useExpenses } from "@/lib/expense-hooks";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useExpenses, useExpenseCategories, DEFAULT_CATEGORIES } from "@/lib/expense-hooks";
 import { useBankAccounts, useMembers } from "@/lib/data-hooks";
-import { inr, fmtDate, fyList } from "@/lib/format";
+import { inr, fmtDate, fyList, today } from "@/lib/format";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
-import { Wallet, Receipt, TrendingDown, TrendingUp } from "lucide-react";
+import { Wallet, Receipt, TrendingDown, TrendingUp, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { ConfirmDeleteRow, ConfirmChangesDialog, diffFields } from "@/components/forms/_shared";
 
 export const Route = createFileRoute("/_authenticated/expenses")({ component: ExpensesPage });
 
@@ -21,6 +29,7 @@ function ExpensesPage() {
   const exps = useExpenses();
   const accts = useBankAccounts();
   const members = useMembers();
+  const qc = useQueryClient();
   const fys = fyList();
   const [fyIdx, setFyIdx] = useState(0);
   const fy = fys[fyIdx];
@@ -43,7 +52,6 @@ function ExpensesPage() {
     });
   }, [exps.data, fy, catFilter, search]);
 
-  // Month-over-month
   const now = new Date();
   const thisMonth = now.toISOString().slice(0, 7);
   const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -55,7 +63,6 @@ function ExpensesPage() {
   const lastTotal = lastMonthExp.reduce((s, e) => s + Number(e.amount), 0);
   const change = lastTotal > 0 ? ((thisTotal - lastTotal) / lastTotal) * 100 : 0;
 
-  // Category breakdown
   const byCat = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of filtered) m.set(e.category, (m.get(e.category) ?? 0) + Number(e.amount));
@@ -78,7 +85,6 @@ function ExpensesPage() {
         </Select>
       </div>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <Card><CardContent className="pt-5">
           <div className="flex items-center justify-between">
@@ -113,7 +119,6 @@ function ExpensesPage() {
         </CardContent></Card>
       </div>
 
-      {/* Donut + Filters */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <Card className="lg:col-span-1">
           <CardHeader><CardTitle className="text-base">By category</CardTitle></CardHeader>
@@ -159,7 +164,7 @@ function ExpensesPage() {
             <EmptyState
               icon={Receipt}
               title="No expenses yet"
-              description="Tap the + button in the bottom-right to log your first expense."
+              description="Tap the + button at the bottom-center to log your first expense."
             />
           ) : (
             <div className="overflow-x-auto">
@@ -169,7 +174,7 @@ function ExpensesPage() {
                   <TableHead>Category</TableHead><TableHead>Method</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Account</TableHead><TableHead>Member</TableHead>
-                  <TableHead>Note</TableHead>
+                  <TableHead>Note</TableHead><TableHead></TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                   {filtered.map((e) => (
@@ -182,6 +187,12 @@ function ExpensesPage() {
                       <TableCell className="text-xs">{acctName(e.paid_from_account_id)}</TableCell>
                       <TableCell className="text-xs">{memberName(e.member_id)}</TableCell>
                       <TableCell className="text-xs text-muted-foreground max-w-xs truncate">{e.note ?? ""}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end">
+                          <EditExpenseButton expense={e} />
+                          <ConfirmDeleteRow table="expenses" id={e.id} amount={Number(e.amount)} label="expense" onDeleted={() => qc.invalidateQueries({ queryKey: ["expenses"] })} />
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -191,5 +202,141 @@ function ExpensesPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+const EXP_LABELS = {
+  date: "Date", amount: "Amount", category: "Category",
+  paid_to_name: "Paid to", payment_method: "Method",
+  paid_from_account_id: "Account", note: "Note", member_id: "Member",
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function EditExpenseButton({ expense, trigger }: { expense: any; trigger?: ReactNode }) {
+  const qc = useQueryClient();
+  const cats = useExpenseCategories();
+  const accts = useBankAccounts();
+  const members = useMembers();
+  const [open, setOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const [date, setDate] = useState(expense.date ?? today());
+  const [amount, setAmount] = useState(String(expense.amount ?? ""));
+  const [category, setCategory] = useState(expense.category ?? "");
+  const [paidFrom, setPaidFrom] = useState<string>(expense.paid_from_account_id ?? "cash");
+  const [paymentMethod, setPaymentMethod] = useState<string>(expense.payment_method ?? "");
+  const [paidTo, setPaidTo] = useState(expense.paid_to_name ?? "");
+  const [note, setNote] = useState(expense.note ?? "");
+  const [memberId, setMemberId] = useState<string>(expense.member_id ?? "");
+
+  useEffect(() => {
+    if (!open) {
+      setDate(expense.date); setAmount(String(expense.amount));
+      setCategory(expense.category); setPaidFrom(expense.paid_from_account_id ?? "cash");
+      setPaymentMethod(expense.payment_method ?? ""); setPaidTo(expense.paid_to_name ?? "");
+      setNote(expense.note ?? ""); setMemberId(expense.member_id ?? "");
+    }
+  }, [open, expense]);
+
+  const allCats = (cats.data ?? []).map((c) => c.name).length ? (cats.data ?? []).map((c) => c.name) : [...DEFAULT_CATEGORIES];
+
+  function payload() {
+    return {
+      date, amount: Number(amount) || 0, category,
+      paid_from_account_id: paidFrom === "cash" ? null : paidFrom,
+      payment_method: paymentMethod || null,
+      paid_to_name: paidTo || null,
+      note: note || null,
+      member_id: memberId || null,
+    };
+  }
+
+  async function doUpdate() {
+    setBusy(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from("expenses") as any).update(payload()).eq("id", expense.id);
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["expenses"] });
+    toast.success("Updated");
+    setConfirmOpen(false); setOpen(false);
+  }
+
+  const changes = diffFields(
+    {
+      date: expense.date, amount: Number(expense.amount), category: expense.category,
+      paid_to_name: expense.paid_to_name, payment_method: expense.payment_method,
+      paid_from_account_id: expense.paid_from_account_id, note: expense.note,
+      member_id: expense.member_id,
+    },
+    {
+      date, amount: Number(amount) || 0, category,
+      paid_to_name: paidTo || null, payment_method: paymentMethod || null,
+      paid_from_account_id: paidFrom === "cash" ? null : paidFrom,
+      note: note || null, member_id: memberId || null,
+    },
+    EXP_LABELS,
+  );
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          {trigger ?? <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>}
+        </DialogTrigger>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Expense</DialogTitle>
+            <DialogDescription>Update this expense record.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label className="text-xs">Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+            <div><Label className="text-xs">Amount</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+            <div className="col-span-2">
+              <Label className="text-xs">Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{allCats.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-xs">Paid From</Label>
+              <Select value={paidFrom} onValueChange={setPaidFrom}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  {(accts.data ?? []).map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-xs">Method</Label>
+              <Select value={paymentMethod || "none"} onValueChange={(v) => setPaymentMethod(v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">—</SelectItem>
+                  {["UPI", "Cash", "Debit Card", "NEFT/IMPS", "Cheque", "Other"].map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-xs">Paid To</Label><Input value={paidTo} onChange={(e) => setPaidTo(e.target.value)} /></div>
+            <div><Label className="text-xs">Member</Label>
+              <Select value={memberId || "none"} onValueChange={(v) => setMemberId(v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">—</SelectItem>
+                  {(members.data ?? []).map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2"><Label className="text-xs">Note</Label><Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={() => setConfirmOpen(true)} disabled={busy}>Review changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <ConfirmChangesDialog open={confirmOpen} onOpenChange={setConfirmOpen} changes={changes} onConfirm={doUpdate} busy={busy} />
+    </>
   );
 }
