@@ -16,6 +16,8 @@ import { toast } from "sonner";
 import { useMembers, useBankAccounts, useCreditCards, useEmis, useInvestments } from "@/lib/data-hooks";
 import { useExpenseCategories, DEFAULT_CATEGORIES } from "@/lib/expense-hooks";
 import { today } from "@/lib/format";
+import { getTDSSection, getTDSSectionByCode } from "@/lib/tds-constants";
+import { TDSSectionPicker } from "@/components/forms/IncomeForm";
 import { cn } from "@/lib/utils";
 
 type Tab = "expense" | "income" | "investment" | "transfer" | "cc" | "emi";
@@ -41,7 +43,7 @@ export function QuickEntryFab() {
         "fixed z-[9999] rounded-full bg-primary text-primary-foreground",
         "flex items-center justify-center transition-transform",
         "shadow-[0_8px_32px_rgba(59,130,246,0.5)] hover:scale-110 active:scale-95",
-        "bottom-6 right-5 h-13 w-13 md:bottom-8 md:right-8 md:h-14 md:w-14",
+        "bottom-6 left-1/2 -translate-x-1/2 md:bottom-8",
       )}
       style={{ width: isMobile ? 52 : 56, height: isMobile ? 52 : 56 }}
     >
@@ -326,31 +328,59 @@ function ExpenseForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-/* ---------------- INCOME QUICK ---------------- */
+/* ---------------- INCOME QUICK (with TDS UX) ---------------- */
 function IncomeQuick({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient();
   const members = useMembers();
   const accts = useBankAccounts();
   const [date, setDate] = useState(today());
   const [type, setType] = useState("Salary");
-  const [amount, setAmount] = useState("");
+  const [gross, setGross] = useState("");
   const [tds, setTds] = useState("0");
+  const [tdsTouched, setTdsTouched] = useState(false);
+  const [tdsSection, setTdsSection] = useState<string>(getTDSSection("Salary"));
+  const [tdsConfirmed, setTdsConfirmed] = useState(true);
+  const [tdsRate, setTdsRate] = useState<string>(String(getTDSSectionByCode(getTDSSection("Salary"))?.rate ?? 0));
   const [memberId, setMemberId] = useState("");
   const [bankId, setBankId] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
-  const net = Math.max(0, (Number(amount) || 0) - (Number(tds) || 0));
+
+  useEffect(() => {
+    const code = getTDSSection(type);
+    setTdsSection(code);
+    setTdsConfirmed(true);
+    const s = getTDSSectionByCode(code);
+    if (s) setTdsRate(String(s.rate));
+  }, [type]);
+
+  useEffect(() => {
+    const s = getTDSSectionByCode(tdsSection);
+    if (s) setTdsRate(String(s.rate));
+  }, [tdsSection]);
+
+  useEffect(() => {
+    if (tdsTouched) return;
+    const calc = +(((Number(gross) || 0) * (Number(tdsRate) || 0)) / 100).toFixed(2);
+    setTds(String(calc));
+  }, [gross, tdsRate, tdsTouched]);
+
+  const net = Math.max(0, (Number(gross) || 0) - (Number(tds) || 0));
 
   async function save() {
-    if (!amount || !bankId) { toast.error("Amount and account required"); return; }
+    if (!gross || !bankId) { toast.error("Amount and account required"); return; }
     setBusy(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { error } = await supabase.from("incomes").insert({
       user_id: user.id, date, member_id: memberId || null, income_type: type,
-      amount: Number(amount), tds: Number(tds) || 0, net_amount: net,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      amount: Number(gross), gross_amount: Number(gross), tds: Number(tds) || 0, net_amount: net,
+      tds_section: tdsSection || null, tds_rate: tdsRate ? Number(tdsRate) : null,
+      tds_section_confirmed: tdsConfirmed,
       bank_account_id: bankId, notes: note || null,
-    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["incomes"] });
@@ -360,13 +390,20 @@ function IncomeQuick({ onDone }: { onDone: () => void }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <div><Label className="text-xs">Amount</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+        <div><Label className="text-xs">Gross Amount</Label><Input type="number" value={gross} onChange={(e) => setGross(e.target.value)} /></div>
         <div><Label className="text-xs">Type</Label>
           <Select value={type} onValueChange={setType}>
             <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{["Salary","Business Income","FD Maturity","Dividend","Interest","Other"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+            <SelectContent>{["Salary","Business Income","FD Maturity","Dividend","Interest","Rental","Other"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
           </Select>
         </div>
+        <div className="col-span-2">
+          <Label className="text-xs">TDS Section</Label>
+          <TDSSectionPicker section={tdsSection} setSection={setTdsSection} confirmed={tdsConfirmed} setConfirmed={setTdsConfirmed} />
+        </div>
+        <div><Label className="text-xs">TDS Rate %</Label><Input type="number" step="0.01" value={tdsRate} onChange={(e) => { setTdsRate(e.target.value); setTdsTouched(false); }} /></div>
+        <div><Label className="text-xs">TDS Amount</Label><Input type="number" value={tds} onChange={(e) => { setTds(e.target.value); setTdsTouched(true); }} /></div>
+        <div><Label className="text-xs">Net</Label><Input value={net} readOnly className="bg-muted" /></div>
         <div><Label className="text-xs">Member</Label>
           <Select value={memberId} onValueChange={setMemberId}>
             <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
@@ -380,7 +417,6 @@ function IncomeQuick({ onDone }: { onDone: () => void }) {
           </Select>
         </div>
         <div><Label className="text-xs">Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-        <div><Label className="text-xs">TDS</Label><Input type="number" value={tds} onChange={(e) => setTds(e.target.value)} /></div>
       </div>
       <div><Label className="text-xs">Note</Label><Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} /></div>
       <Button onClick={save} disabled={busy} className="w-full h-12">{busy ? "Saving…" : "Save Income"}</Button>
@@ -388,7 +424,7 @@ function IncomeQuick({ onDone }: { onDone: () => void }) {
   );
 }
 
-/* ---------------- INVESTMENT QUICK ---------------- */
+/* ---------------- INVESTMENT QUICK (dynamic by type) ---------------- */
 function InvestmentQuick({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient();
   const accts = useBankAccounts();
@@ -402,16 +438,40 @@ function InvestmentQuick({ onDone }: { onDone: () => void }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // Dynamic fields
+  const [fdNumber, setFdNumber] = useState("");
+  const [fdType, setFdType] = useState("Cumulative");
+  const [folioNumber, setFolioNumber] = useState("");
+  const [isin, setIsin] = useState("");
+  const [symbol, setSymbol] = useState("");
+  const [units, setUnits] = useState("");
+  const [nav, setNav] = useState("");
+  const [weight, setWeight] = useState("");
+  const [purity, setPurity] = useState("24K");
+
+  const isFD = type === "FD" || type === "RD";
+  const isMF = type === "Mutual Fund";
+  const isStock = type === "Stock";
+  const isGold = type === "Gold";
+
   async function save() {
     if (!amount) { toast.error("Amount required"); return; }
+    if (isFD && !fdNumber) { toast.error("FD Number is required"); return; }
     setBusy(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { error } = await supabase.from("investments").insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const payload: any = {
       user_id: user.id, date, investment_type: type, institution: institution || null,
       amount: Number(amount), source_of_funds: source, bank_account_id: bankId || null,
       maturity_date: maturityDate || null, status: "Active", notes: note || null,
-    });
+    };
+    if (isFD) { payload.fd_number = fdNumber; payload.fd_type = fdType; }
+    if (isMF) { payload.folio_number = folioNumber || null; payload.isin = isin || null; payload.units = units ? Number(units) : null; payload.nav_at_purchase = nav ? Number(nav) : null; }
+    if (isStock) { payload.symbol = symbol || null; payload.isin = isin || null; payload.units = units ? Number(units) : null; payload.nav_at_purchase = nav ? Number(nav) : null; payload.exchange = "NSE"; }
+    if (isGold) { payload.weight_grams = weight ? Number(weight) : null; payload.purity = purity; payload.nav_at_purchase = nav ? Number(nav) : null; }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from("investments") as any).insert(payload);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["investments"] });
@@ -424,7 +484,7 @@ function InvestmentQuick({ onDone }: { onDone: () => void }) {
         <div><Label className="text-xs">Type</Label>
           <Select value={type} onValueChange={setType}>
             <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{["FD","RD","Mutual Fund","Stock","PPF","NPS","Bond","Other"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+            <SelectContent>{["FD","RD","Mutual Fund","Stock","Gold","PPF","NPS","Bond","Other"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div><Label className="text-xs">Institution</Label><Input value={institution} onChange={(e) => setInstitution(e.target.value)} /></div>
@@ -432,7 +492,7 @@ function InvestmentQuick({ onDone }: { onDone: () => void }) {
         <div><Label className="text-xs">Source</Label>
           <Select value={source} onValueChange={setSource}>
             <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{["Fresh Income","Reinvested","Partial Reinvested"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+            <SelectContent>{["Fresh Income","Reinvestment","Partial Reinvestment"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div><Label className="text-xs">Paid From</Label>
@@ -443,6 +503,38 @@ function InvestmentQuick({ onDone }: { onDone: () => void }) {
         </div>
         <div><Label className="text-xs">Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
         <div className="col-span-2"><Label className="text-xs">Maturity Date</Label><Input type="date" value={maturityDate} onChange={(e) => setMaturityDate(e.target.value)} /></div>
+
+        {isFD && <>
+          <div><Label className="text-xs">FD Number *</Label><Input value={fdNumber} onChange={(e) => setFdNumber(e.target.value)} /></div>
+          <div><Label className="text-xs">FD Type</Label>
+            <Select value={fdType} onValueChange={setFdType}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="Cumulative">Cumulative</SelectItem><SelectItem value="Non-Cumulative">Non-Cumulative</SelectItem></SelectContent>
+            </Select>
+          </div>
+        </>}
+        {isMF && <>
+          <div><Label className="text-xs">Folio</Label><Input value={folioNumber} onChange={(e) => setFolioNumber(e.target.value)} /></div>
+          <div><Label className="text-xs">ISIN</Label><Input value={isin} onChange={(e) => setIsin(e.target.value)} /></div>
+          <div><Label className="text-xs">NAV</Label><Input type="number" step="0.0001" value={nav} onChange={(e) => setNav(e.target.value)} /></div>
+          <div><Label className="text-xs">Units</Label><Input type="number" step="0.0001" value={units} onChange={(e) => setUnits(e.target.value)} /></div>
+        </>}
+        {isStock && <>
+          <div><Label className="text-xs">Symbol</Label><Input value={symbol} onChange={(e) => setSymbol(e.target.value)} /></div>
+          <div><Label className="text-xs">ISIN</Label><Input value={isin} onChange={(e) => setIsin(e.target.value)} /></div>
+          <div><Label className="text-xs">Quantity</Label><Input type="number" value={units} onChange={(e) => setUnits(e.target.value)} /></div>
+          <div><Label className="text-xs">Price/share</Label><Input type="number" step="0.01" value={nav} onChange={(e) => setNav(e.target.value)} /></div>
+        </>}
+        {isGold && <>
+          <div><Label className="text-xs">Weight (g)</Label><Input type="number" step="0.001" value={weight} onChange={(e) => setWeight(e.target.value)} /></div>
+          <div><Label className="text-xs">Purity</Label>
+            <Select value={purity} onValueChange={setPurity}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{["24K","22K","18K"].map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="col-span-2"><Label className="text-xs">Price per gram</Label><Input type="number" step="0.01" value={nav} onChange={(e) => setNav(e.target.value)} /></div>
+        </>}
       </div>
       <div><Label className="text-xs">Note</Label><Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} /></div>
       <Button onClick={save} disabled={busy} className="w-full h-12">{busy ? "Saving…" : "Save Investment"}</Button>

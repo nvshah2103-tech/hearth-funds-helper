@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,17 +10,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { useBusinessIncomes, useMembers, useBankAccounts } from "@/lib/data-hooks";
 import { inr, fmtDate, today, fyList } from "@/lib/format";
-import { Field, DeleteRow } from "@/components/forms/IncomeForm";
+import { Field, TDSSectionPicker } from "@/components/forms/IncomeForm";
+import { ConfirmDeleteRow, ConfirmChangesDialog, diffFields } from "@/components/forms/_shared";
+import { getTDSSection, getTDSSectionByCode } from "@/lib/tds-constants";
 import { downloadCSV } from "@/lib/csv";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/business")({ component: BusinessPage });
 
 function quarterOf(d: string) {
   const m = new Date(d).getMonth();
-  // Indian FY quarters: Q1=Apr-Jun, Q2=Jul-Sep, Q3=Oct-Dec, Q4=Jan-Mar
   if (m >= 3 && m <= 5) return "Q1";
   if (m >= 6 && m <= 8) return "Q2";
   if (m >= 9 && m <= 11) return "Q3";
@@ -29,7 +31,8 @@ function quarterOf(d: string) {
 
 function BusinessPage() {
   const bis = useBusinessIncomes();
-  const members = useMembers().data?.filter((m) => m.is_business) ?? [];
+  const allMembers = useMembers().data ?? [];
+  const members = allMembers.filter((m) => m.is_business);
   const accts = useBankAccounts();
   const qc = useQueryClient();
   const fys = fyList();
@@ -39,7 +42,6 @@ function BusinessPage() {
   const acctName = (id: string | null) => accts.data?.find((a) => a.id === id)?.name ?? "—";
   const filtered = (bis.data ?? []).filter((b) => b.date >= fy.start && b.date <= fy.end);
 
-  // quarterly summary
   const byQ: Record<string, { gross: number; tds: number; net: number; count: number }> = {
     Q1: { gross: 0, tds: 0, net: 0, count: 0 }, Q2: { gross: 0, tds: 0, net: 0, count: 0 },
     Q3: { gross: 0, tds: 0, net: 0, count: 0 }, Q4: { gross: 0, tds: 0, net: 0, count: 0 },
@@ -54,6 +56,8 @@ function BusinessPage() {
     downloadCSV(`business-${fy.label}.csv`, filtered.map((b) => ({
       Date: fmtDate(b.date), Client: b.client_name, Quarter: quarterOf(b.date),
       Invoice: Number(b.invoice_amount), TDS: Number(b.tds), Net: Number(b.net_received),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      Section: (b as any).tds_section ?? "", Rate: (b as any).tds_rate ?? "",
       Account: acctName(b.bank_account_id), Notes: b.notes ?? "",
     })));
   }
@@ -71,7 +75,7 @@ function BusinessPage() {
             <SelectContent>{fys.map((f, i) => <SelectItem key={i} value={i.toString()}>{f.label}</SelectItem>)}</SelectContent>
           </Select>
           <Button variant="outline" onClick={exportCsv}>Export</Button>
-          <AddBusinessButton members={members} accts={accts.data ?? []} />
+          <AddOrEditBusinessButton members={members} accts={accts.data ?? []} />
         </div>
       </div>
 
@@ -105,23 +109,40 @@ function BusinessPage() {
           <Table>
             <TableHeader><TableRow>
               <TableHead>Date</TableHead><TableHead>Client</TableHead><TableHead>Quarter</TableHead>
+              <TableHead>TDS Section</TableHead>
               <TableHead className="text-right">Invoice</TableHead><TableHead className="text-right">TDS</TableHead>
               <TableHead className="text-right">Net</TableHead><TableHead>Account</TableHead><TableHead></TableHead>
             </TableRow></TableHeader>
             <TableBody>
-              {filtered.map((b) => (
-                <TableRow key={b.id}>
-                  <TableCell>{fmtDate(b.date)}</TableCell>
-                  <TableCell>{b.client_name}</TableCell>
-                  <TableCell>{quarterOf(b.date)}</TableCell>
-                  <TableCell className="text-right font-mono">{inr(b.invoice_amount)}</TableCell>
-                  <TableCell className="text-right font-mono">{inr(b.tds)}</TableCell>
-                  <TableCell className="text-right font-mono text-success">{inr(b.net_received)}</TableCell>
-                  <TableCell>{acctName(b.bank_account_id)}</TableCell>
-                  <TableCell className="text-right"><DeleteRow table="business_incomes" id={b.id} onDeleted={() => qc.invalidateQueries({ queryKey: ["business_incomes"] })} /></TableCell>
-                </TableRow>
-              ))}
-              {!filtered.length && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No business invoices for {fy.label}.</TableCell></TableRow>}
+              {filtered.map((b) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const r = b as any;
+                const unconfirmed = !r.tds_section_confirmed && Number(r.tds) > 0;
+                return (
+                  <TableRow key={b.id}>
+                    <TableCell>{fmtDate(b.date)}</TableCell>
+                    <TableCell>{b.client_name}</TableCell>
+                    <TableCell>{quarterOf(b.date)}</TableCell>
+                    <TableCell className="text-xs">
+                      <div className="flex items-center gap-1.5">
+                        {unconfirmed && <span className={cn("h-2 w-2 rounded-full bg-amber-500")} />}
+                        {r.tds_section ?? "—"}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-mono">{inr(b.invoice_amount)}</TableCell>
+                    <TableCell className="text-right font-mono">{inr(b.tds)}</TableCell>
+                    <TableCell className="text-right font-mono text-success">{inr(b.net_received)}</TableCell>
+                    <TableCell>{acctName(b.bank_account_id)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end">
+                        <AddOrEditBusinessButton editing={b} members={members} accts={accts.data ?? []} />
+                        <ConfirmDeleteRow table="business_incomes" id={b.id} amount={Number(b.invoice_amount)} label="invoice" onDeleted={() => qc.invalidateQueries({ queryKey: ["business_incomes"] })} />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {!filtered.length && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No business invoices for {fy.label}.</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
@@ -130,56 +151,145 @@ function BusinessPage() {
   );
 }
 
-function AddBusinessButton({ members, accts }: { members: { id: string; name: string }[]; accts: { id: string; name: string }[] }) {
+const BIZ_LABELS = {
+  date: "Date", client_name: "Client", invoice_amount: "Invoice", tds: "TDS",
+  net_received: "Net", bank_account_id: "Account", tds_section: "TDS section",
+  tds_rate: "TDS rate %", notes: "Notes",
+};
+
+function AddOrEditBusinessButton({
+  members, accts, editing, trigger,
+}: {
+  members: { id: string; name: string }[];
+  accts: { id: string; name: string }[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  editing?: any;
+  trigger?: ReactNode;
+}) {
   const qc = useQueryClient();
+  const isEdit = !!editing;
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ date: today(), member: members[0]?.id ?? "", client: "", invoice: "", tds: "0", bank: "", notes: "" });
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const net = Math.max(0, (Number(f.invoice) || 0) - (Number(f.tds) || 0));
+  const [date, setDate] = useState(editing?.date ?? today());
+  const [memberId, setMemberId] = useState(editing?.member_id ?? members[0]?.id ?? "");
+  const [client, setClient] = useState(editing?.client_name ?? "");
+  const [invoice, setInvoice] = useState(String(editing?.invoice_amount ?? ""));
+  const [tds, setTds] = useState(String(editing?.tds ?? "0"));
+  const [tdsTouched, setTdsTouched] = useState(false);
+  const [tdsSection, setTdsSection] = useState<string>(editing?.tds_section ?? "194J");
+  const [tdsConfirmed, setTdsConfirmed] = useState<boolean>(editing?.tds_section_confirmed ?? false);
+  const [tdsRate, setTdsRate] = useState<string>(String(editing?.tds_rate ?? getTDSSectionByCode("194J")?.rate ?? 10));
+  const [bank, setBank] = useState(editing?.bank_account_id ?? "");
+  const [notes, setNotes] = useState(editing?.notes ?? "");
 
-  async function save() {
-    if (!f.client || !f.invoice) { toast.error("Client and amount required"); return; }
+  useEffect(() => {
+    const s = getTDSSectionByCode(tdsSection);
+    if (s) setTdsRate(String(s.rate));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tdsSection]);
+
+  useEffect(() => {
+    if (tdsTouched) return;
+    const calc = +(((Number(invoice) || 0) * (Number(tdsRate) || 0)) / 100).toFixed(2);
+    setTds(String(calc));
+  }, [invoice, tdsRate, tdsTouched]);
+
+  const net = Math.max(0, (Number(invoice) || 0) - (Number(tds) || 0));
+
+  function payload() {
+    return {
+      date, member_id: memberId || null, client_name: client,
+      invoice_amount: Number(invoice), tds: Number(tds) || 0, net_received: net,
+      tds_section: tdsSection || null, tds_rate: tdsRate ? Number(tdsRate) : null,
+      tds_section_confirmed: tdsConfirmed,
+      tds_expected: +(((Number(invoice) || 0) * (Number(tdsRate) || 0)) / 100).toFixed(2),
+      bank_account_id: bank || null, notes: notes || null,
+    };
+  }
+
+  async function doInsert() {
+    if (!client || !invoice) { toast.error("Client and amount required"); return; }
+    setBusy(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { error } = await supabase.from("business_incomes").insert({
-      user_id: user.id, date: f.date, member_id: f.member || null, client_name: f.client,
-      invoice_amount: Number(f.invoice), tds: Number(f.tds) || 0, net_received: net,
-      bank_account_id: f.bank || null, notes: f.notes || null,
-    });
+    if (!user) { setBusy(false); return; }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from("business_incomes") as any).insert({ user_id: user.id, ...payload() });
+    setBusy(false);
     if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["business_incomes"] });
     toast.success("Invoice recorded");
     setOpen(false);
-    setF({ date: today(), member: members[0]?.id ?? "", client: "", invoice: "", tds: "0", bank: "", notes: "" });
   }
 
+  async function doUpdate() {
+    setBusy(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from("business_incomes") as any).update(payload()).eq("id", editing.id);
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["business_incomes"] });
+    toast.success("Updated");
+    setConfirmOpen(false); setOpen(false);
+  }
+
+  const changes = isEdit
+    ? diffFields(editing as Record<string, unknown>, payload() as Record<string, unknown>, BIZ_LABELS)
+    : [];
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-1" />Add invoice</Button></DialogTrigger>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Add business income</DialogTitle><DialogDescription>Client invoice with TDS.</DialogDescription></DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Date"><Input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
-          <Field label="Member">
-            <Select value={f.member} onValueChange={(v) => setF({ ...f, member: v })}>
-              <SelectTrigger><SelectValue placeholder="Member" /></SelectTrigger>
-              <SelectContent>{members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
-            </Select>
-          </Field>
-          <Field label="Client name" full><Input value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} /></Field>
-          <Field label="Invoice amount (₹)"><Input type="number" value={f.invoice} onChange={(e) => setF({ ...f, invoice: e.target.value })} /></Field>
-          <Field label="TDS (₹)"><Input type="number" value={f.tds} onChange={(e) => setF({ ...f, tds: e.target.value })} /></Field>
-          <Field label="Net received (₹)"><Input value={net.toString()} readOnly className="bg-muted" /></Field>
-          <Field label="Received in">
-            <Select value={f.bank} onValueChange={(v) => setF({ ...f, bank: v })}>
-              <SelectTrigger><SelectValue placeholder="Account" /></SelectTrigger>
-              <SelectContent>{accts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
-            </Select>
-          </Field>
-          <Field label="Notes" full><Textarea rows={2} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
-        </div>
-        <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={save}>Confirm & save</Button></DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          {trigger ?? (
+            isEdit
+              ? <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
+              : <Button><Plus className="h-4 w-4 mr-1" />Add invoice</Button>
+          )}
+        </DialogTrigger>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{isEdit ? "Edit Business Income" : "Add business income"}</DialogTitle>
+            <DialogDescription>Client invoice with TDS.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Date"><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+            <Field label="Member">
+              <Select value={memberId} onValueChange={setMemberId}>
+                <SelectTrigger><SelectValue placeholder="Member" /></SelectTrigger>
+                <SelectContent>{members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+            <Field label="Client name" full><Input value={client} onChange={(e) => setClient(e.target.value)} /></Field>
+            <Field label="Invoice amount (₹)"><Input type="number" value={invoice} onChange={(e) => setInvoice(e.target.value)} /></Field>
+            <Field label="Net received (₹)"><Input value={net.toString()} readOnly className="bg-muted" /></Field>
+            <Field label="TDS Section" full>
+              <TDSSectionPicker section={tdsSection} setSection={setTdsSection} confirmed={tdsConfirmed} setConfirmed={setTdsConfirmed} />
+            </Field>
+            <Field label="TDS Rate %"><Input type="number" step="0.01" value={tdsRate} onChange={(e) => { setTdsRate(e.target.value); setTdsTouched(false); }} /></Field>
+            <Field label="TDS Amount (₹)"><Input type="number" value={tds} onChange={(e) => { setTds(e.target.value); setTdsTouched(true); }} /></Field>
+            <Field label="Received in" full>
+              <Select value={bank} onValueChange={setBank}>
+                <SelectTrigger><SelectValue placeholder="Account" /></SelectTrigger>
+                <SelectContent>{accts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+            <Field label="Notes" full><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={() => isEdit ? setConfirmOpen(true) : doInsert()} disabled={busy}>
+              {busy ? "Saving…" : (isEdit ? "Review changes" : "Confirm & save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {isEdit && (
+        <ConfirmChangesDialog open={confirmOpen} onOpenChange={setConfirmOpen} changes={changes} onConfirm={doUpdate} busy={busy} />
+      )}
+    </>
   );
 }
+// satisfy linter on unused import for getTDSSection (kept for parity / future helpers)
+void getTDSSection;
