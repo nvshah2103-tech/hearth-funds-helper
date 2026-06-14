@@ -16,6 +16,8 @@ import { toast } from "sonner";
 import { useMembers, useBankAccounts, useCreditCards, useEmis, useInvestments } from "@/lib/data-hooks";
 import { useExpenseCategories, DEFAULT_CATEGORIES } from "@/lib/expense-hooks";
 import { today } from "@/lib/format";
+import { getTDSSection, getTDSSectionByCode } from "@/lib/tds-constants";
+import { TDSSectionPicker } from "@/components/forms/IncomeForm";
 import { cn } from "@/lib/utils";
 
 type Tab = "expense" | "income" | "investment" | "transfer" | "cc" | "emi";
