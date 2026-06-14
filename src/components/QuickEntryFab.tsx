@@ -41,7 +41,7 @@ export function QuickEntryFab() {
         "fixed z-[9999] rounded-full bg-primary text-primary-foreground",
         "flex items-center justify-center transition-transform",
         "shadow-[0_8px_32px_rgba(59,130,246,0.5)] hover:scale-110 active:scale-95",
-        "bottom-6 right-5 h-13 w-13 md:bottom-8 md:right-8 md:h-14 md:w-14",
+        "bottom-6 left-1/2 -translate-x-1/2 md:bottom-8",
       )}
       style={{ width: isMobile ? 52 : 56, height: isMobile ? 52 : 56 }}
     >
