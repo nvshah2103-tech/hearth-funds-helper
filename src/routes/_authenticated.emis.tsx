@@ -194,3 +194,65 @@ function PayEmiButton({ emi }: { emi: { id: string; emi_amount: number; bank_acc
     </Dialog>
   );
 }
+
+const EMI_PAY_LABELS = { paid_date: "Date", amount: "Amount", bank_account_id: "From", notes: "Notes" };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function EditEmiPaymentButton({ payment, trigger }: { payment: any; trigger?: ReactNode }) {
+  const accts = useBankAccounts();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [date, setDate] = useState(payment.paid_date);
+  const [amount, setAmount] = useState(String(payment.amount));
+  const [bank, setBank] = useState(payment.bank_account_id ?? "");
+  const [notes, setNotes] = useState(payment.notes ?? "");
+
+  function payload() {
+    return { paid_date: date, amount: Number(amount), bank_account_id: bank || null, notes: notes || null };
+  }
+  async function doUpdate() {
+    setBusy(true);
+    const { error } = await supabase.from("emi_payments").update(payload()).eq("id", payment.id);
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["emi_payments"] });
+    toast.success("Updated"); setConfirmOpen(false); setOpen(false);
+  }
+  const changes = diffFields(
+    { paid_date: payment.paid_date, amount: Number(payment.amount), bank_account_id: payment.bank_account_id, notes: payment.notes },
+    payload() as Record<string, unknown>, EMI_PAY_LABELS,
+  );
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          {trigger ?? <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>}
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit EMI Payment</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Date"><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+            <Field label="Amount (₹)"><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+            <Field label="From" full>
+              <Select value={bank} onValueChange={setBank}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{(accts.data ?? []).map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={() => setConfirmOpen(true)} disabled={busy}>Review changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <ConfirmChangesDialog open={confirmOpen} onOpenChange={setConfirmOpen} changes={changes} onConfirm={doUpdate} busy={busy} />
+    </>
+  );
+}
+
+// keep DeleteRow imported but unused for now (other call sites may still rely on it)
+void DeleteRow;
