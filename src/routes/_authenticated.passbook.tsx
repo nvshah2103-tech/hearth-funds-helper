@@ -16,7 +16,8 @@ import {
 } from "@/lib/data-hooks";
 import { inr, fmtDate, fyFor } from "@/lib/format";
 import { downloadCSV } from "@/lib/csv";
-import { Download, Filter, Search, ChevronDown } from "lucide-react";
+import { Download, Filter, Search, ChevronDown, Upload } from "lucide-react";
+import { ImportPdfDialog } from "@/components/ImportPdfDialog";
 
 export const Route = createFileRoute("/_authenticated/passbook")({ component: PassbookPage });
 
@@ -299,10 +300,14 @@ function PassbookPage() {
           <p className="text-sm text-muted-foreground">Every transaction across every account in one place.</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-1" />Import PDF
+          </Button>
           <Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button>
           <Button size="sm" onClick={exportCSV}><Download className="h-4 w-4 mr-1" />Export CSV</Button>
         </div>
       </div>
+      <ImportPdfDialog open={importOpen} onOpenChange={setImportOpen} />
 
       {/* Summary bar */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
