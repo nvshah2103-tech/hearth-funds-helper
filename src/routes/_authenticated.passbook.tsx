@@ -150,6 +150,7 @@ function PassbookPage() {
 
   // ---- Filter state ----
   const [selAccts, setSelAccts] = useState<Set<string>>(new Set());
+  const [importOpen, setImportOpen] = useState(false);
   const [selMembers, setSelMembers] = useState<Set<string>>(new Set());
   const [selCats, setSelCats] = useState<Set<Category>>(new Set());
   const [rangeKey, setRangeKey] = useState<RangeKey>("thisFY");
