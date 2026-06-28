@@ -1,7 +1,6 @@
 // Client-only PDF text extraction with optional password support.
 // Uses pdfjs-dist's legacy build for broad browser compat.
 import * as pdfjs from "pdfjs-dist";
-// @ts-expect-error - worker URL import resolved by Vite
 import workerSrc from "pdfjs-dist/build/pdf.worker.mjs?url";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
