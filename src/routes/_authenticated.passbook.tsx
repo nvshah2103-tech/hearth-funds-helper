@@ -271,12 +271,13 @@ function PassbookPage() {
 
   // ---- Summary ----
   const summary = useMemo(() => {
-    let credits = 0, debits = 0;
+    let credits = 0, debits = 0, manual = 0, imported = 0;
     for (const r of filtered) {
       if (r.direction === "credit") credits += r.amount;
       else if (r.direction === "debit") debits += Math.abs(r.amount);
+      if (r.source === "M") manual += 1; else imported += 1;
     }
-    return { credits, debits, net: credits - debits, count: filtered.length };
+    return { credits, debits, net: credits - debits, count: filtered.length, manual, imported };
   }, [filtered]);
 
   const aggregateNow = useMemo(() => {
@@ -291,8 +292,8 @@ function PassbookPage() {
     setter(next);
   }
 
-  function exportCSV() {
-    const rowsCSV = filtered.map((r) => ({
+  function buildExportRows() {
+    return filtered.map((r) => ({
       Date: r.date,
       Description: r.description,
       Counterparty: r.counterparty ?? "",
@@ -304,9 +305,33 @@ function PassbookPage() {
       Transfer: r.category === "Internal Transfer" ? r.amount : "",
       "Account Balance": perAcctById.get(r.id) ?? "",
       "Aggregate Balance": aggregateById.get(r.id) ?? "",
-      Source: r.source,
+      Source: r.source === "I" ? "Imported" : "Manual",
     }));
-    downloadCSV(`passbook-${range.from}-to-${range.to}.csv`, rowsCSV);
+  }
+
+  function exportCSV() { downloadCSV(`passbook-${range.from}-to-${range.to}.csv`, buildExportRows()); }
+  function exportXLSX() { downloadXLSX(`passbook-${range.from}-to-${range.to}.xlsx`, buildExportRows(), "Passbook"); }
+  function exportPDF() {
+    const rowsHtml = filtered.map((r) => `<tr>
+      <td>${fmtDate(r.date)}</td>
+      <td>${escapeHtml(r.description)}</td>
+      <td>${escapeHtml(r.bankAccountName)}</td>
+      <td>${escapeHtml(r.memberName)}</td>
+      <td>${r.category}</td>
+      <td class="num">${r.direction === "credit" ? inr(r.amount) : ""}</td>
+      <td class="num">${r.direction === "debit" ? inr(Math.abs(r.amount)) : ""}</td>
+      <td class="num">${inr(aggregateById.get(r.id) ?? 0)}</td>
+    </tr>`).join("");
+    const body = `
+      <h1>Family Passbook</h1>
+      <div class="meta">${fmtDate(range.from)} → ${fmtDate(range.to)} · ${summary.count} transactions ·
+        Credits ${inr(summary.credits)} · Debits ${inr(summary.debits)} · Net ${inr(summary.net)} ·
+        Aggregate balance ${inr(aggregateNow)}</div>
+      <table><thead><tr>
+        <th>Date</th><th>Description</th><th>Bank</th><th>Member</th><th>Category</th>
+        <th class="num">Credit</th><th class="num">Debit</th><th class="num">Aggregate</th>
+      </tr></thead><tbody>${rowsHtml}</tbody></table>`;
+    printHTMLToPDF("Family Passbook", body);
   }
 
   function clearFilters() {
