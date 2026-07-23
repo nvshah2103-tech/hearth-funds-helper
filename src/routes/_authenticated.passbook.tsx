@@ -71,6 +71,10 @@ const CAT_COLOR: Record<Category, string> = {
   "Other": "bg-slate-500/10 text-slate-700 dark:text-slate-400",
 };
 
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+}
+
 type RangeKey = "today" | "week" | "month" | "lastMonth" | "thisFY" | "lastFY" | "all" | "custom";
 
 function PassbookPage() {
