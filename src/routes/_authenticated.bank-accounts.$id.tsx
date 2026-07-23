@@ -1,22 +1,29 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useBankAccounts, useIncomes, useInvestments, useTransfers, useCCBills, useBusinessIncomes, useEmiPayments } from "@/lib/data-hooks";
+import {
+  useBankAccounts, useIncomes, useInvestments, useTransfers,
+  useCCBills, useBusinessIncomes, useEmiPayments,
+} from "@/lib/data-hooks";
+import { useMasterTransactions } from "@/lib/master-txn-hooks";
 import { inr, fmtDate } from "@/lib/format";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Upload } from "lucide-react";
+import { ImportPdfDialog } from "@/components/ImportPdfDialog";
 
 export const Route = createFileRoute("/_authenticated/bank-accounts/$id")({ component: AccountLedger });
 
-type Entry = { date: string; description: string; credit?: number; debit?: number };
+type Entry = { date: string; description: string; credit?: number; debit?: number; imported?: boolean };
 
 function AccountLedger() {
   const { id } = Route.useParams();
   const accts = useBankAccounts();
   const inc = useIncomes(); const inv = useInvestments(); const tr = useTransfers();
   const cc = useCCBills(); const bi = useBusinessIncomes(); const ep = useEmiPayments();
+  const mtx = useMasterTransactions();
+  const [importOpen, setImportOpen] = useState(false);
 
   const account = accts.data?.find((a) => a.id === id);
 
@@ -31,9 +38,20 @@ function AccountLedger() {
     }
     for (const x of cc.data ?? []) if (x.bank_account_id === id && x.payment_amount) e.push({ date: x.payment_date ?? x.billing_month, description: `Credit card payment`, debit: Number(x.payment_amount) });
     for (const x of ep.data ?? []) if (x.bank_account_id === id) e.push({ date: x.paid_date, description: `EMI payment`, debit: Number(x.amount) });
+    for (const x of mtx.data ?? []) {
+      if (x.bank_account_id !== id || !x.is_imported) continue;
+      const c = Number(x.credit), d = Number(x.debit);
+      e.push({
+        date: x.txn_date,
+        description: x.description || (c > 0 ? "Credit" : "Debit"),
+        credit: c > 0 ? c : undefined,
+        debit: d > 0 ? d : undefined,
+        imported: true,
+      });
+    }
     e.sort((a, b) => (a.date < b.date ? -1 : 1));
     return e;
-  }, [id, inc.data, inv.data, tr.data, cc.data, bi.data, ep.data]);
+  }, [id, inc.data, inv.data, tr.data, cc.data, bi.data, ep.data, mtx.data]);
 
   const opening = Number(account?.opening_balance ?? 0);
   let running = opening;
@@ -46,7 +64,13 @@ function AccountLedger() {
 
   return (
     <div className="space-y-4">
-      <Button variant="ghost" size="sm" asChild><Link to="/bank-accounts"><ArrowLeft className="h-4 w-4 mr-1" />Back</Link></Button>
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" size="sm" asChild><Link to="/bank-accounts"><ArrowLeft className="h-4 w-4 mr-1" />Back</Link></Button>
+        <Button size="sm" onClick={() => setImportOpen(true)}>
+          <Upload className="h-4 w-4 mr-1" />Import PDF Statement
+        </Button>
+      </div>
+      <ImportPdfDialog open={importOpen} onOpenChange={setImportOpen} defaultAccountId={id} />
       <div>
         <h1 className="text-2xl font-semibold">{account.name}</h1>
         <p className="text-sm text-muted-foreground">{account.bank_name ?? ""} · {account.account_type}</p>
@@ -70,7 +94,10 @@ function AccountLedger() {
               {withRunning.map((e, i) => (
                 <TableRow key={i}>
                   <TableCell>{fmtDate(e.date)}</TableCell>
-                  <TableCell>{e.description}</TableCell>
+                  <TableCell>
+                    <span>{e.description}</span>
+                    {e.imported && <Badge variant="secondary" className="ml-2 text-[10px] bg-sky-500/10 text-sky-700 dark:text-sky-400">Imported</Badge>}
+                  </TableCell>
                   <TableCell className="text-right font-mono text-success">{e.credit ? inr(e.credit) : ""}</TableCell>
                   <TableCell className="text-right font-mono text-destructive">{e.debit ? inr(e.debit) : ""}</TableCell>
                   <TableCell className="text-right font-mono">{inr(e.balance)}</TableCell>
