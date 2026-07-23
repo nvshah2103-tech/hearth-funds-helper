@@ -25,11 +25,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 export const Route = createFileRoute("/_authenticated/passbook")({ component: PassbookPage });
 
 type Direction = "credit" | "debit" | "transfer";
-type Source = "M";
+type Source = "M" | "I"; // Manual | Imported
 type Category =
   | "Salary" | "FD Maturity" | "Investment" | "CC Payment" | "EMI"
   | "Internal Transfer" | "Broker Payout" | "Dividend" | "Business Income"
-  | "UPI" | "ATM" | "Other";
+  | "UPI" | "ATM" | "Imported" | "Other";
 
 type Row = {
   id: string;
@@ -52,7 +52,7 @@ type Row = {
 const ALL_CATEGORIES: Category[] = [
   "Salary", "FD Maturity", "Investment", "CC Payment", "EMI",
   "Internal Transfer", "Broker Payout", "Dividend", "Business Income",
-  "UPI", "ATM", "Other",
+  "UPI", "ATM", "Imported", "Other",
 ];
 
 const CAT_COLOR: Record<Category, string> = {
@@ -67,6 +67,7 @@ const CAT_COLOR: Record<Category, string> = {
   "Broker Payout": "bg-slate-500/10 text-slate-700 dark:text-slate-400",
   "UPI": "bg-slate-500/10 text-slate-700 dark:text-slate-400",
   "ATM": "bg-slate-500/10 text-slate-700 dark:text-slate-400",
+  "Imported": "bg-sky-500/10 text-sky-700 dark:text-sky-400",
   "Other": "bg-slate-500/10 text-slate-700 dark:text-slate-400",
 };
 
@@ -77,6 +78,7 @@ function PassbookPage() {
   const accts = useBankAccounts();
   const inc = useIncomes(); const inv = useInvestments(); const tr = useTransfers();
   const cc = useCCBills(); const bi = useBusinessIncomes(); const ep = useEmiPayments();
+  const mtx = useMasterTransactions();
 
   // ---- Build all rows ----
   const rows = useMemo<Row[]>(() => {
@@ -147,9 +149,26 @@ function PassbookPage() {
         category: "EMI", direction: "debit", amount: -Number(x.amount), source: "M",
       });
     }
+    // Imported bank statement transactions (master_transactions with is_imported = true)
+    for (const x of mtx.data ?? []) {
+      if (!x.is_imported) continue;
+      const isCredit = Number(x.credit) > 0;
+      const amt = isCredit ? Number(x.credit) : -Number(x.debit);
+      out.push({
+        id: `mtx-${x.id}`, date: x.txn_date,
+        description: x.description || (isCredit ? "Credit" : "Debit"),
+        counterparty: x.reference_no ?? undefined,
+        bankAccountId: x.bank_account_id, bankAccountName: acctName(x.bank_account_id),
+        memberId: null, memberName: "—",
+        category: "Imported",
+        direction: isCredit ? "credit" : "debit",
+        amount: amt,
+        source: "I",
+      });
+    }
     out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     return out;
-  }, [members.data, accts.data, inc.data, inv.data, tr.data, cc.data, bi.data, ep.data]);
+  }, [members.data, accts.data, inc.data, inv.data, tr.data, cc.data, bi.data, ep.data, mtx.data]);
 
   // ---- Filter state ----
   const [selAccts, setSelAccts] = useState<Set<string>>(new Set());
