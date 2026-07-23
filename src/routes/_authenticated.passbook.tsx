@@ -14,19 +14,22 @@ import {
   useMembers, useBankAccounts, useIncomes, useInvestments,
   useTransfers, useCCBills, useBusinessIncomes, useEmiPayments,
 } from "@/lib/data-hooks";
+import { useMasterTransactions } from "@/lib/master-txn-hooks";
 import { inr, fmtDate, fyFor } from "@/lib/format";
 import { downloadCSV } from "@/lib/csv";
-import { Download, Filter, Search, ChevronDown, Upload } from "lucide-react";
+import { downloadXLSX, printHTMLToPDF } from "@/lib/export";
+import { Download, Filter, Search, ChevronDown, Upload, FileSpreadsheet, Printer, FileText } from "lucide-react";
 import { ImportPdfDialog } from "@/components/ImportPdfDialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/_authenticated/passbook")({ component: PassbookPage });
 
 type Direction = "credit" | "debit" | "transfer";
-type Source = "M";
+type Source = "M" | "I"; // Manual | Imported
 type Category =
   | "Salary" | "FD Maturity" | "Investment" | "CC Payment" | "EMI"
   | "Internal Transfer" | "Broker Payout" | "Dividend" | "Business Income"
-  | "UPI" | "ATM" | "Other";
+  | "UPI" | "ATM" | "Imported" | "Other";
 
 type Row = {
   id: string;
@@ -49,7 +52,7 @@ type Row = {
 const ALL_CATEGORIES: Category[] = [
   "Salary", "FD Maturity", "Investment", "CC Payment", "EMI",
   "Internal Transfer", "Broker Payout", "Dividend", "Business Income",
-  "UPI", "ATM", "Other",
+  "UPI", "ATM", "Imported", "Other",
 ];
 
 const CAT_COLOR: Record<Category, string> = {
@@ -64,8 +67,13 @@ const CAT_COLOR: Record<Category, string> = {
   "Broker Payout": "bg-slate-500/10 text-slate-700 dark:text-slate-400",
   "UPI": "bg-slate-500/10 text-slate-700 dark:text-slate-400",
   "ATM": "bg-slate-500/10 text-slate-700 dark:text-slate-400",
+  "Imported": "bg-sky-500/10 text-sky-700 dark:text-sky-400",
   "Other": "bg-slate-500/10 text-slate-700 dark:text-slate-400",
 };
+
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+}
 
 type RangeKey = "today" | "week" | "month" | "lastMonth" | "thisFY" | "lastFY" | "all" | "custom";
 
@@ -74,6 +82,7 @@ function PassbookPage() {
   const accts = useBankAccounts();
   const inc = useIncomes(); const inv = useInvestments(); const tr = useTransfers();
   const cc = useCCBills(); const bi = useBusinessIncomes(); const ep = useEmiPayments();
+  const mtx = useMasterTransactions();
 
   // ---- Build all rows ----
   const rows = useMemo<Row[]>(() => {
@@ -144,9 +153,26 @@ function PassbookPage() {
         category: "EMI", direction: "debit", amount: -Number(x.amount), source: "M",
       });
     }
+    // Imported bank statement transactions (master_transactions with is_imported = true)
+    for (const x of mtx.data ?? []) {
+      if (!x.is_imported) continue;
+      const isCredit = Number(x.credit) > 0;
+      const amt = isCredit ? Number(x.credit) : -Number(x.debit);
+      out.push({
+        id: `mtx-${x.id}`, date: x.txn_date,
+        description: x.description || (isCredit ? "Credit" : "Debit"),
+        counterparty: x.reference_no ?? undefined,
+        bankAccountId: x.bank_account_id, bankAccountName: acctName(x.bank_account_id),
+        memberId: null, memberName: "—",
+        category: "Imported",
+        direction: isCredit ? "credit" : "debit",
+        amount: amt,
+        source: "I",
+      });
+    }
     out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     return out;
-  }, [members.data, accts.data, inc.data, inv.data, tr.data, cc.data, bi.data, ep.data]);
+  }, [members.data, accts.data, inc.data, inv.data, tr.data, cc.data, bi.data, ep.data, mtx.data]);
 
   // ---- Filter state ----
   const [selAccts, setSelAccts] = useState<Set<string>>(new Set());
@@ -249,12 +275,13 @@ function PassbookPage() {
 
   // ---- Summary ----
   const summary = useMemo(() => {
-    let credits = 0, debits = 0;
+    let credits = 0, debits = 0, manual = 0, imported = 0;
     for (const r of filtered) {
       if (r.direction === "credit") credits += r.amount;
       else if (r.direction === "debit") debits += Math.abs(r.amount);
+      if (r.source === "M") manual += 1; else imported += 1;
     }
-    return { credits, debits, net: credits - debits, count: filtered.length };
+    return { credits, debits, net: credits - debits, count: filtered.length, manual, imported };
   }, [filtered]);
 
   const aggregateNow = useMemo(() => {
@@ -269,8 +296,8 @@ function PassbookPage() {
     setter(next);
   }
 
-  function exportCSV() {
-    const rowsCSV = filtered.map((r) => ({
+  function buildExportRows() {
+    return filtered.map((r) => ({
       Date: r.date,
       Description: r.description,
       Counterparty: r.counterparty ?? "",
@@ -282,9 +309,33 @@ function PassbookPage() {
       Transfer: r.category === "Internal Transfer" ? r.amount : "",
       "Account Balance": perAcctById.get(r.id) ?? "",
       "Aggregate Balance": aggregateById.get(r.id) ?? "",
-      Source: r.source,
+      Source: r.source === "I" ? "Imported" : "Manual",
     }));
-    downloadCSV(`passbook-${range.from}-to-${range.to}.csv`, rowsCSV);
+  }
+
+  function exportCSV() { downloadCSV(`passbook-${range.from}-to-${range.to}.csv`, buildExportRows()); }
+  function exportXLSX() { downloadXLSX(`passbook-${range.from}-to-${range.to}.xlsx`, buildExportRows(), "Passbook"); }
+  function exportPDF() {
+    const rowsHtml = filtered.map((r) => `<tr>
+      <td>${fmtDate(r.date)}</td>
+      <td>${escapeHtml(r.description)}</td>
+      <td>${escapeHtml(r.bankAccountName)}</td>
+      <td>${escapeHtml(r.memberName)}</td>
+      <td>${r.category}</td>
+      <td class="num">${r.direction === "credit" ? inr(r.amount) : ""}</td>
+      <td class="num">${r.direction === "debit" ? inr(Math.abs(r.amount)) : ""}</td>
+      <td class="num">${inr(aggregateById.get(r.id) ?? 0)}</td>
+    </tr>`).join("");
+    const body = `
+      <h1>Family Passbook</h1>
+      <div class="meta">${fmtDate(range.from)} → ${fmtDate(range.to)} · ${summary.count} transactions ·
+        Credits ${inr(summary.credits)} · Debits ${inr(summary.debits)} · Net ${inr(summary.net)} ·
+        Aggregate balance ${inr(aggregateNow)}</div>
+      <table><thead><tr>
+        <th>Date</th><th>Description</th><th>Bank</th><th>Member</th><th>Category</th>
+        <th class="num">Credit</th><th class="num">Debit</th><th class="num">Aggregate</th>
+      </tr></thead><tbody>${rowsHtml}</tbody></table>`;
+    printHTMLToPDF("Family Passbook", body);
   }
 
   function clearFilters() {
@@ -305,15 +356,24 @@ function PassbookPage() {
             <Upload className="h-4 w-4 mr-1" />Import PDF
           </Button>
           <Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button>
-          <Button size="sm" onClick={exportCSV}><Download className="h-4 w-4 mr-1" />Export CSV</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm"><Download className="h-4 w-4 mr-1" />Export<ChevronDown className="h-3 w-3 ml-1" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportCSV}><FileText className="h-4 w-4 mr-2" />CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportXLSX}><FileSpreadsheet className="h-4 w-4 mr-2" />Excel (.xlsx)</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportPDF}><Printer className="h-4 w-4 mr-2" />PDF</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       <ImportPdfDialog open={importOpen} onOpenChange={setImportOpen} />
 
       {/* Summary bar */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <Card><CardContent className="pt-5">
-          <p className="text-xs text-muted-foreground">Aggregate balance (all accounts)</p>
+          <p className="text-xs text-muted-foreground">Aggregate balance</p>
           <p className="text-xl font-mono font-semibold text-primary">{inr(aggregateNow)}</p>
         </CardContent></Card>
         <Card><CardContent className="pt-5">
@@ -332,7 +392,12 @@ function PassbookPage() {
           <p className="text-xs text-muted-foreground">Transactions</p>
           <p className="text-xl font-mono">{summary.count}</p>
         </CardContent></Card>
+        <Card><CardContent className="pt-5">
+          <p className="text-xs text-muted-foreground">Manual / Imported</p>
+          <p className="text-xl font-mono">{summary.manual} <span className="text-muted-foreground text-sm">/</span> <span className="text-sky-600 dark:text-sky-400">{summary.imported}</span></p>
+        </CardContent></Card>
       </div>
+
 
       {/* Filters */}
       <Card>
