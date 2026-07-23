@@ -356,15 +356,24 @@ function PassbookPage() {
             <Upload className="h-4 w-4 mr-1" />Import PDF
           </Button>
           <Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button>
-          <Button size="sm" onClick={exportCSV}><Download className="h-4 w-4 mr-1" />Export CSV</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm"><Download className="h-4 w-4 mr-1" />Export<ChevronDown className="h-3 w-3 ml-1" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportCSV}><FileText className="h-4 w-4 mr-2" />CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportXLSX}><FileSpreadsheet className="h-4 w-4 mr-2" />Excel (.xlsx)</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportPDF}><Printer className="h-4 w-4 mr-2" />PDF</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       <ImportPdfDialog open={importOpen} onOpenChange={setImportOpen} />
 
       {/* Summary bar */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <Card><CardContent className="pt-5">
-          <p className="text-xs text-muted-foreground">Aggregate balance (all accounts)</p>
+          <p className="text-xs text-muted-foreground">Aggregate balance</p>
           <p className="text-xl font-mono font-semibold text-primary">{inr(aggregateNow)}</p>
         </CardContent></Card>
         <Card><CardContent className="pt-5">
@@ -383,7 +392,12 @@ function PassbookPage() {
           <p className="text-xs text-muted-foreground">Transactions</p>
           <p className="text-xl font-mono">{summary.count}</p>
         </CardContent></Card>
+        <Card><CardContent className="pt-5">
+          <p className="text-xs text-muted-foreground">Manual / Imported</p>
+          <p className="text-xl font-mono">{summary.manual} <span className="text-muted-foreground text-sm">/</span> <span className="text-sky-600 dark:text-sky-400">{summary.imported}</span></p>
+        </CardContent></Card>
       </div>
+
 
       {/* Filters */}
       <Card>
