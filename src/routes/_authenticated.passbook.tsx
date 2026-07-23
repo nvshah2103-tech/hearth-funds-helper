@@ -14,10 +14,13 @@ import {
   useMembers, useBankAccounts, useIncomes, useInvestments,
   useTransfers, useCCBills, useBusinessIncomes, useEmiPayments,
 } from "@/lib/data-hooks";
+import { useMasterTransactions } from "@/lib/master-txn-hooks";
 import { inr, fmtDate, fyFor } from "@/lib/format";
 import { downloadCSV } from "@/lib/csv";
-import { Download, Filter, Search, ChevronDown, Upload } from "lucide-react";
+import { downloadXLSX, printHTMLToPDF } from "@/lib/export";
+import { Download, Filter, Search, ChevronDown, Upload, FileSpreadsheet, Printer, FileText } from "lucide-react";
 import { ImportPdfDialog } from "@/components/ImportPdfDialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/_authenticated/passbook")({ component: PassbookPage });
 

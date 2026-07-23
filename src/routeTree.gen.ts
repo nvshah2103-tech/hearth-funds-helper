@@ -19,6 +19,7 @@ import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPassbookRouteImport } from './routes/_authenticated.passbook'
 import { Route as AuthenticatedInvestmentsRouteImport } from './routes/_authenticated.investments'
 import { Route as AuthenticatedIncomeRouteImport } from './routes/_authenticated.income'
+import { Route as AuthenticatedImportStatusRouteImport } from './routes/_authenticated.import-status'
 import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated.expenses'
 import { Route as AuthenticatedEmisRouteImport } from './routes/_authenticated.emis'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
@@ -77,6 +78,12 @@ const AuthenticatedIncomeRoute = AuthenticatedIncomeRouteImport.update({
   path: '/income',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedImportStatusRoute =
+  AuthenticatedImportStatusRouteImport.update({
+    id: '/import-status',
+    path: '/import-status',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedExpensesRoute = AuthenticatedExpensesRouteImport.update({
   id: '/expenses',
   path: '/expenses',
@@ -126,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/emis': typeof AuthenticatedEmisRoute
   '/expenses': typeof AuthenticatedExpensesRoute
+  '/import-status': typeof AuthenticatedImportStatusRoute
   '/income': typeof AuthenticatedIncomeRoute
   '/investments': typeof AuthenticatedInvestmentsRoute
   '/passbook': typeof AuthenticatedPassbookRoute
@@ -144,6 +152,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/emis': typeof AuthenticatedEmisRoute
   '/expenses': typeof AuthenticatedExpensesRoute
+  '/import-status': typeof AuthenticatedImportStatusRoute
   '/income': typeof AuthenticatedIncomeRoute
   '/investments': typeof AuthenticatedInvestmentsRoute
   '/passbook': typeof AuthenticatedPassbookRoute
@@ -164,6 +173,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/emis': typeof AuthenticatedEmisRoute
   '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
+  '/_authenticated/import-status': typeof AuthenticatedImportStatusRoute
   '/_authenticated/income': typeof AuthenticatedIncomeRoute
   '/_authenticated/investments': typeof AuthenticatedInvestmentsRoute
   '/_authenticated/passbook': typeof AuthenticatedPassbookRoute
@@ -184,6 +194,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/emis'
     | '/expenses'
+    | '/import-status'
     | '/income'
     | '/investments'
     | '/passbook'
@@ -202,6 +213,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/emis'
     | '/expenses'
+    | '/import-status'
     | '/income'
     | '/investments'
     | '/passbook'
@@ -221,6 +233,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/emis'
     | '/_authenticated/expenses'
+    | '/_authenticated/import-status'
     | '/_authenticated/income'
     | '/_authenticated/investments'
     | '/_authenticated/passbook'
@@ -309,6 +322,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIncomeRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/import-status': {
+      id: '/_authenticated/import-status'
+      path: '/import-status'
+      fullPath: '/import-status'
+      preLoaderRoute: typeof AuthenticatedImportStatusRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/expenses': {
       id: '/_authenticated/expenses'
       path: '/expenses'
@@ -382,6 +402,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedEmisRoute: typeof AuthenticatedEmisRoute
   AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
+  AuthenticatedImportStatusRoute: typeof AuthenticatedImportStatusRoute
   AuthenticatedIncomeRoute: typeof AuthenticatedIncomeRoute
   AuthenticatedInvestmentsRoute: typeof AuthenticatedInvestmentsRoute
   AuthenticatedPassbookRoute: typeof AuthenticatedPassbookRoute
@@ -397,6 +418,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedEmisRoute: AuthenticatedEmisRoute,
   AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
+  AuthenticatedImportStatusRoute: AuthenticatedImportStatusRoute,
   AuthenticatedIncomeRoute: AuthenticatedIncomeRoute,
   AuthenticatedInvestmentsRoute: AuthenticatedInvestmentsRoute,
   AuthenticatedPassbookRoute: AuthenticatedPassbookRoute,
