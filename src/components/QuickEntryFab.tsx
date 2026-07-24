@@ -37,13 +37,14 @@ export function QuickEntryFab() {
 
   const Btn = (
     <button
-      aria-label="Quick entry"
+      aria-label="Add entry"
       onClick={() => setOpen(true)}
       className={cn(
         "fixed z-[9999] rounded-full bg-primary text-primary-foreground",
         "flex items-center justify-center transition-transform",
-        "shadow-[0_8px_32px_rgba(59,130,246,0.5)] hover:scale-110 active:scale-95",
-        "bottom-6 left-1/2 -translate-x-1/2 md:bottom-8",
+        "shadow-[0_8px_32px_rgba(109,40,217,0.4)] hover:scale-110 active:scale-95",
+        // Mobile: bottom center. Desktop: bottom left.
+        "bottom-6 left-1/2 -translate-x-1/2 md:left-6 md:translate-x-0 md:bottom-8",
       )}
       style={{ width: isMobile ? 52 : 56, height: isMobile ? 52 : 56 }}
     >
@@ -53,11 +54,8 @@ export function QuickEntryFab() {
 
   const Body = (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        <div className="font-semibold">Quick Entry</div>
-        <Button variant="ghost" size="icon" onClick={() => setOpen(false)}>
-          <X className="h-4 w-4" />
-        </Button>
+      <div className="px-4 py-3 border-b">
+        <div className="font-semibold">Add Entry</div>
       </div>
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="flex-1 flex flex-col min-h-0">
         <div className="border-b overflow-x-auto">

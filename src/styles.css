@@ -34,6 +34,12 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-investment: var(--investment);
   --color-tds: var(--tds);
+  --color-coral: var(--coral);
+  --color-teal: var(--teal);
+  --color-violet: var(--violet);
+  --color-sky: var(--sky);
+  --color-rose: var(--rose);
+  --color-amber: var(--amber);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -44,61 +50,73 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* Stitch-inspired dark theme — applied globally (no light mode). */
-:root,
-.dark {
-  --radius: 0.75rem;
+/* Warm paper light theme with rotating module accents. */
+:root {
+  --radius: 0.875rem;
 
-  /* Surfaces (Stitch lowest → highest) */
-  --background: #0b0e13;
-  --foreground: #e1e2e9;
-  --card: #1d2025;
-  --card-foreground: #e1e2e9;
-  --popover: #1d2025;
-  --popover-foreground: #e1e2e9;
-  --muted: #272a30;
-  --muted-foreground: #c1c7d3;
-  --accent: #32353b;
-  --accent-foreground: #e1e2e9;
-  --secondary: #272a30;
-  --secondary-foreground: #e1e2e9;
+  /* Surfaces */
+  --background: #fafaf7;
+  --foreground: #1a1d2e;
+  --card: #ffffff;
+  --card-foreground: #1a1d2e;
+  --popover: #ffffff;
+  --popover-foreground: #1a1d2e;
+  --muted: #f3f2ed;
+  --muted-foreground: #6b7085;
+  --accent: #eef1f7;
+  --accent-foreground: #1a1d2e;
+  --secondary: #f3f2ed;
+  --secondary-foreground: #1a1d2e;
 
-  /* Brand */
-  --primary: #a4c9ff;
-  --primary-foreground: #00315d;
+  /* Brand — deep violet */
+  --primary: #6d28d9;
+  --primary-foreground: #ffffff;
 
   /* Semantic */
-  --destructive: #ffb4ab;
-  --destructive-foreground: #690005;
-  --success: #4ade80;
-  --success-foreground: #052e16;
-  --warning: #fabd34;
-  --warning-foreground: #412d00;
-  --investment: #ddb7ff;
-  --tds: #67e8f9;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #059669;
+  --success-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --investment: #0d9488;
+  --tds: #ea580c;
+
+  /* Module accents */
+  --coral: #ef4444;
+  --teal: #14b8a6;
+  --violet: #8b5cf6;
+  --sky: #0ea5e9;
+  --rose: #ec4899;
+  --amber: #f59e0b;
 
   /* Form / borders */
-  --border: #32353b;
-  --input: #32353b;
-  --ring: #a4c9ff;
+  --border: #e5e2d9;
+  --input: #e5e2d9;
+  --ring: #6d28d9;
 
   /* Sidebar */
-  --sidebar: #0b0e13;
-  --sidebar-foreground: #c1c7d3;
-  --sidebar-primary: #a4c9ff;
-  --sidebar-primary-foreground: #00315d;
-  --sidebar-accent: #1d2025;
-  --sidebar-accent-foreground: #e1e2e9;
-  --sidebar-border: #1d2025;
-  --sidebar-ring: #a4c9ff;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #4b4f63;
+  --sidebar-primary: #6d28d9;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f6f2ff;
+  --sidebar-accent-foreground: #6d28d9;
+  --sidebar-border: #eeeae0;
+  --sidebar-ring: #6d28d9;
 
   /* Extras */
-  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 4px 24px rgba(26, 29, 46, 0.06);
+}
+
+/* Dark class kept as no-op to prevent legacy toggles from breaking. */
+.dark {
+  color-scheme: light;
 }
 
 @layer base {
   * { border-color: var(--color-border); }
-  html { color-scheme: dark; }
+  html { color-scheme: light; }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
@@ -106,6 +124,14 @@
     font-feature-settings: "cv11", "ss01";
   }
 }
+
+/* Module-tinted card helpers */
+@utility card-coral { background: color-mix(in oklab, var(--coral) 8%, var(--card)); }
+@utility card-teal { background: color-mix(in oklab, var(--teal) 8%, var(--card)); }
+@utility card-violet { background: color-mix(in oklab, var(--violet) 8%, var(--card)); }
+@utility card-sky { background: color-mix(in oklab, var(--sky) 8%, var(--card)); }
+@utility card-rose { background: color-mix(in oklab, var(--rose) 8%, var(--card)); }
+@utility card-amber { background: color-mix(in oklab, var(--amber) 10%, var(--card)); }
 
 @media print {
   .no-print { display: none !important; }
