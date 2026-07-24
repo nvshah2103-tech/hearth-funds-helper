@@ -99,9 +99,8 @@ export function QuickEntryFab() {
   );
 }
 
-/* ---------------- EXPENSE FORM (Quick + Detailed) ---------------- */
+/* ---------------- EXPENSE FORM (unified) ---------------- */
 function ExpenseForm({ onDone }: { onDone: () => void }) {
-  const [mode, setMode] = useState<"quick" | "detailed">("quick");
   const qc = useQueryClient();
   const cats = useExpenseCategories();
   const accts = useBankAccounts();
@@ -112,10 +111,11 @@ function ExpenseForm({ onDone }: { onDone: () => void }) {
   const [paidFrom, setPaidFrom] = useState<string>("cash");
   const [date, setDate] = useState(today());
   const [note, setNote] = useState("");
-  // detailed
   const [time, setTime] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [paidTo, setPaidTo] = useState("");
+  const [payeeSuggestions, setPayeeSuggestions] = useState<string[]>([]);
+  const [showSug, setShowSug] = useState(false);
   const [upiId, setUpiId] = useState("");
   const [upiRef, setUpiRef] = useState("");
   const [chequeNo, setChequeNo] = useState("");
@@ -127,9 +127,29 @@ function ExpenseForm({ onDone }: { onDone: () => void }) {
   const [gst, setGst] = useState("");
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [newAcctOpen, setNewAcctOpen] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { amountRef.current?.focus(); }, []);
+
+  // Load recent unique paid-to names once
+  useEffect(() => {
+    (async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase.from as any)("expenses")
+        .select("paid_to_name")
+        .not("paid_to_name", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      const uniq = Array.from(new Set(((data ?? []) as { paid_to_name: string }[])
+        .map((r) => r.paid_to_name).filter(Boolean)));
+      setPayeeSuggestions(uniq);
+    })();
+  }, []);
+
+  const matchedPayees = paidTo.trim().length >= 2
+    ? payeeSuggestions.filter((n) => n.toLowerCase().includes(paidTo.toLowerCase()) && n.toLowerCase() !== paidTo.toLowerCase()).slice(0, 6)
+    : [];
 
   const categoryList = (cats.data ?? []).map((c) => c.name);
   const allCats = categoryList.length ? categoryList : [...DEFAULT_CATEGORIES];
@@ -141,21 +161,21 @@ function ExpenseForm({ onDone }: { onDone: () => void }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setBusy(false); return; }
     const payload = {
-      user_id: user.id, date, time: mode === "detailed" && time ? time : null,
+      user_id: user.id, date, time: time || null,
       amount: Number(amount), category,
       paid_from_account_id: paidFrom === "cash" ? null : paidFrom,
-      payment_method: mode === "detailed" ? (paymentMethod || null) : null,
-      paid_to_name: mode === "detailed" ? (paidTo || null) : null,
-      upi_id: mode === "detailed" && paymentMethod === "UPI" ? (upiId || null) : null,
-      upi_reference: mode === "detailed" && paymentMethod === "UPI" ? (upiRef || null) : null,
-      cheque_number: mode === "detailed" && paymentMethod === "Cheque" ? (chequeNo || null) : null,
+      payment_method: paymentMethod || null,
+      paid_to_name: paidTo || null,
+      upi_id: paymentMethod === "UPI" ? (upiId || null) : null,
+      upi_reference: paymentMethod === "UPI" ? (upiRef || null) : null,
+      cheque_number: paymentMethod === "Cheque" ? (chequeNo || null) : null,
       note: note || null,
-      tags: mode === "detailed" && tags ? tags.split(",").map((s) => s.trim()).filter(Boolean) : null,
-      is_recurring: mode === "detailed" ? recurring : false,
-      recurring_frequency: mode === "detailed" && recurring ? freq : null,
-      member_id: mode === "detailed" && memberId ? memberId : null,
-      is_business_expense: mode === "detailed" ? isBusiness : false,
-      gst_number: mode === "detailed" && gst ? gst : null,
+      tags: tags ? tags.split(",").map((s) => s.trim()).filter(Boolean) : null,
+      is_recurring: recurring,
+      recurring_frequency: recurring ? freq : null,
+      member_id: memberId || null,
+      is_business_expense: isBusiness,
+      gst_number: gst || null,
       is_imported: false,
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -184,15 +204,6 @@ function ExpenseForm({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <Button type="button" variant={mode === "quick" ? "default" : "outline"} size="sm" onClick={() => setMode("quick")} className="flex-1">
-          <Zap className="h-4 w-4 mr-1" /> Quick
-        </Button>
-        <Button type="button" variant={mode === "detailed" ? "default" : "outline"} size="sm" onClick={() => setMode("detailed")} className="flex-1">
-          <ClipboardList className="h-4 w-4 mr-1" /> Detailed
-        </Button>
-      </div>
-
       <div className="relative">
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-3xl text-muted-foreground">₹</span>
         <Input
@@ -228,11 +239,12 @@ function ExpenseForm({ onDone }: { onDone: () => void }) {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-xs">Paid From</Label>
-          <Select value={paidFrom} onValueChange={setPaidFrom}>
+          <Select value={paidFrom} onValueChange={(v) => { if (v === "__new__") { setNewAcctOpen(true); } else { setPaidFrom(v); } }}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="cash">Cash</SelectItem>
               {(accts.data ?? []).map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+              <SelectItem value="__new__">+ Add new account</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -243,56 +255,81 @@ function ExpenseForm({ onDone }: { onDone: () => void }) {
       </div>
 
       <div>
+        <Label className="text-xs">Payment Method</Label>
+        <div className="flex flex-wrap gap-2">
+          {["UPI", "Cash", "Debit Card", "NEFT/IMPS", "Cheque", "Other"].map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setPaymentMethod(p)}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs border transition-colors",
+                paymentMethod === p ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-accent",
+              )}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="relative">
+        <Label className="text-xs">Paid To</Label>
+        <Input
+          value={paidTo}
+          onChange={(e) => { setPaidTo(e.target.value); setShowSug(true); }}
+          onFocus={() => setShowSug(true)}
+          onBlur={() => setTimeout(() => setShowSug(false), 150)}
+          placeholder="Person or merchant name"
+        />
+        {showSug && matchedPayees.length > 0 && (
+          <div className="absolute z-50 left-0 right-0 mt-1 rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
+            {matchedPayees.map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => { setPaidTo(n); setShowSug(false); }}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {paymentMethod === "UPI" && (
+        <div className="grid grid-cols-2 gap-3">
+          <div><Label className="text-xs">UPI ID</Label><Input value={upiId} onChange={(e) => setUpiId(e.target.value)} placeholder="name@bank" /></div>
+          <div><Label className="text-xs">UPI Ref / Txn ID</Label><Input value={upiRef} onChange={(e) => setUpiRef(e.target.value)} /></div>
+        </div>
+      )}
+      {paymentMethod === "Cheque" && (
+        <div><Label className="text-xs">Cheque Number</Label><Input value={chequeNo} onChange={(e) => setChequeNo(e.target.value)} /></div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">Time (optional)</Label>
+          <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-xs">Member (optional)</Label>
+          <Select value={memberId} onValueChange={setMemberId}>
+            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+            <SelectContent>{(members.data ?? []).map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div>
         <Label className="text-xs">Note</Label>
         <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was this for? (optional)" />
       </div>
 
-      {mode === "detailed" && (
-        <div className="space-y-3 pt-2 border-t">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Time</Label>
-              <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-            </div>
-            <div>
-              <Label className="text-xs">Member</Label>
-              <Select value={memberId} onValueChange={setMemberId}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>{(members.data ?? []).map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div>
-            <Label className="text-xs">Payment Method</Label>
-            <div className="flex flex-wrap gap-2">
-              {["UPI", "Cash", "Debit Card", "NEFT/IMPS", "Cheque", "Other"].map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPaymentMethod(p)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-full text-xs border transition-colors",
-                    paymentMethod === p ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-accent",
-                  )}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <Label className="text-xs">Paid To (person/merchant)</Label>
-            <Input value={paidTo} onChange={(e) => setPaidTo(e.target.value)} />
-          </div>
-          {paymentMethod === "UPI" && (
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs">UPI ID</Label><Input value={upiId} onChange={(e) => setUpiId(e.target.value)} placeholder="name@bank" /></div>
-              <div><Label className="text-xs">UPI Ref / Txn ID</Label><Input value={upiRef} onChange={(e) => setUpiRef(e.target.value)} /></div>
-            </div>
-          )}
-          {paymentMethod === "Cheque" && (
-            <div><Label className="text-xs">Cheque Number</Label><Input value={chequeNo} onChange={(e) => setChequeNo(e.target.value)} /></div>
-          )}
+      <details className="rounded-md border p-3">
+        <summary className="cursor-pointer text-sm text-muted-foreground">More options</summary>
+        <div className="space-y-3 pt-3">
           <div><Label className="text-xs">Tags (comma separated)</Label><Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="household, monthly" /></div>
           <div className="flex items-center justify-between">
             <Label className="text-xs">Recurring?</Label>
@@ -317,14 +354,69 @@ function ExpenseForm({ onDone }: { onDone: () => void }) {
             <div><Label className="text-xs">GST / Receipt No</Label><Input value={gst} onChange={(e) => setGst(e.target.value)} /></div>
           )}
         </div>
-      )}
+      </details>
 
       <Button onClick={save} disabled={busy} className="w-full h-12 text-base">
-        {busy ? "Saving…" : `Save ${mode === "quick" ? "Expense" : "Detailed Expense"}`}
+        {busy ? "Saving…" : "Save Expense"}
       </Button>
+
+      <NewAccountDialog
+        open={newAcctOpen}
+        onOpenChange={setNewAcctOpen}
+        onCreated={(id) => { setPaidFrom(id); qc.invalidateQueries({ queryKey: ["bank_accounts"] }); }}
+      />
     </div>
   );
 }
+
+/* Mini bank-account creator used inline. */
+function NewAccountDialog({
+  open, onOpenChange, onCreated,
+}: { open: boolean; onOpenChange: (v: boolean) => void; onCreated: (id: string) => void }) {
+  const [name, setName] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [type, setType] = useState("Savings");
+  const [opening, setOpening] = useState("0");
+  const [busy, setBusy] = useState(false);
+  async function create() {
+    if (!name.trim()) { toast.error("Name required"); return; }
+    setBusy(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from as any)("bank_accounts")
+      .insert({ user_id: user.id, name, bank_name: bankName || null, account_type: type, opening_balance: Number(opening) || 0 })
+      .select("id").single();
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Account added");
+    onCreated(data.id);
+    onOpenChange(false);
+    setName(""); setBankName(""); setOpening("0");
+  }
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <div className="space-y-3">
+          <div className="font-semibold">Add Account / Wallet</div>
+          <div><Label className="text-xs">Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. HDFC Savings, PhonePe Wallet" /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label className="text-xs">Bank / Provider</Label><Input value={bankName} onChange={(e) => setBankName(e.target.value)} /></div>
+            <div><Label className="text-xs">Type</Label>
+              <Select value={type} onValueChange={setType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{["Savings","Current","Wallet","Cash","Other"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div><Label className="text-xs">Opening Balance</Label><Input type="number" value={opening} onChange={(e) => setOpening(e.target.value)} /></div>
+          <Button onClick={create} disabled={busy} className="w-full">{busy ? "Adding…" : "Add"}</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 /* ---------------- INCOME QUICK (with TDS UX) ---------------- */
 function IncomeQuick({ onDone }: { onDone: () => void }) {
