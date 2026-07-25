@@ -13,6 +13,7 @@ import { useMembers, useBankAccounts, useInvestments } from "@/lib/data-hooks";
 import { today } from "@/lib/format";
 import { TDS_SECTIONS, TDS_QUICK_OPTIONS, getTDSSection, getTDSSectionByCode } from "@/lib/tds-constants";
 import { ConfirmChangesDialog, ConfirmDeleteRow, diffFields } from "./_shared";
+import { TypeSelect } from "@/components/TypeSelect";
 
 const TYPES = ["Salary", "Business Income", "FD Maturity", "Investment Maturity", "Dividend", "Interest", "Rental", "Other"] as const;
 
@@ -264,10 +265,7 @@ export function AddIncomeButton({ defaultType, editing, trigger }: { defaultType
               </Select>
             </Field>
             <Field label="Income type">
-              <Select value={incomeType} onValueChange={setIncomeType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-              </Select>
+              <TypeSelect value={incomeType} onChange={setIncomeType} base={TYPES} kind="income" />
             </Field>
             <Field label="Gross amount (₹)">
               <Input type="number" value={grossAmount} onChange={(e) => setGrossAmount(e.target.value)} />

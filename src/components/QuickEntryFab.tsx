@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Check } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -15,9 +15,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useMembers, useBankAccounts, useCreditCards, useEmis, useInvestments } from "@/lib/data-hooks";
 import { useExpenseCategories, DEFAULT_CATEGORIES } from "@/lib/expense-hooks";
-import { today } from "@/lib/format";
+import { today, inr } from "@/lib/format";
 import { getTDSSection, getTDSSectionByCode } from "@/lib/tds-constants";
 import { TDSSectionPicker } from "@/components/forms/IncomeForm";
+import { TypeSelect } from "@/components/TypeSelect";
 import { cn } from "@/lib/utils";
 
 type Tab = "expense" | "income" | "investment" | "transfer" | "cc" | "emi";
@@ -482,10 +483,8 @@ function IncomeQuick({ onDone }: { onDone: () => void }) {
       <div className="grid grid-cols-2 gap-3">
         <div><Label className="text-xs">Gross Amount</Label><Input type="number" value={gross} onChange={(e) => setGross(e.target.value)} /></div>
         <div><Label className="text-xs">Type</Label>
-          <Select value={type} onValueChange={setType}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{["Salary","Business Income","FD Maturity","Dividend","Interest","Rental","Other"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-          </Select>
+          <TypeSelect value={type} onChange={setType} kind="income"
+            base={["Salary","Business Income","FD Maturity","Dividend","Interest","Rental","Other"]} />
         </div>
         <div className="col-span-2">
           <Label className="text-xs">TDS Section</Label>
@@ -521,6 +520,8 @@ function InvestmentQuick({ onDone }: { onDone: () => void }) {
   const [type, setType] = useState("FD");
   const [institution, setInstitution] = useState("");
   const [amount, setAmount] = useState("");
+  const [rollover, setRollover] = useState("");
+  const freshCalc = useMemo(() => Math.max(0, (Number(amount) || 0) - (Number(rollover) || 0)), [amount, rollover]);
   const [source, setSource] = useState("Fresh Income");
   const [bankId, setBankId] = useState("");
   const [maturityDate, setMaturityDate] = useState("");
@@ -555,6 +556,7 @@ function InvestmentQuick({ onDone }: { onDone: () => void }) {
       user_id: user.id, date, investment_type: type, institution: institution || null,
       amount: Number(amount), source_of_funds: source, bank_account_id: bankId || null,
       maturity_date: maturityDate || null, status: "Active", notes: note || null,
+      fresh_topup_amount: source === "Partial Reinvestment" ? freshCalc : null,
     };
     if (isFD) { payload.fd_number = fdNumber; payload.fd_type = fdType; }
     if (isMF) { payload.folio_number = folioNumber || null; payload.isin = isin || null; payload.units = units ? Number(units) : null; payload.nav_at_purchase = nav ? Number(nav) : null; }
@@ -572,19 +574,27 @@ function InvestmentQuick({ onDone }: { onDone: () => void }) {
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div><Label className="text-xs">Type</Label>
-          <Select value={type} onValueChange={setType}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{["FD","RD","Mutual Fund","Stock","Gold","PPF","NPS","Bond","Other"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-          </Select>
+          <TypeSelect value={type} onChange={setType} kind="investment"
+            base={["FD","RD","Mutual Fund","Stock","Gold","PPF","NPS","Bond","Other"]} />
         </div>
         <div><Label className="text-xs">Institution</Label><Input value={institution} onChange={(e) => setInstitution(e.target.value)} /></div>
-        <div><Label className="text-xs">Amount</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+        <div><Label className="text-xs">Total Amount</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
         <div><Label className="text-xs">Source</Label>
           <Select value={source} onValueChange={setSource}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>{["Fresh Income","Reinvestment","Partial Reinvestment"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
           </Select>
         </div>
+        {source === "Partial Reinvestment" && (
+          <>
+            <div><Label className="text-xs">Rollover from maturity</Label>
+              <Input type="number" value={rollover} onChange={(e) => setRollover(e.target.value)} placeholder="Old money" />
+            </div>
+            <div><Label className="text-xs">Fresh top-up (auto)</Label>
+              <Input value={inr(freshCalc)} readOnly className="bg-muted" />
+            </div>
+          </>
+        )}
         <div><Label className="text-xs">Paid From</Label>
           <Select value={bankId} onValueChange={setBankId}>
             <SelectTrigger><SelectValue placeholder="Bank" /></SelectTrigger>
