@@ -571,19 +571,27 @@ function InvestmentQuick({ onDone }: { onDone: () => void }) {
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div><Label className="text-xs">Type</Label>
-          <Select value={type} onValueChange={setType}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{["FD","RD","Mutual Fund","Stock","Gold","PPF","NPS","Bond","Other"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-          </Select>
+          <TypeSelect value={type} onChange={setType} kind="investment"
+            base={["FD","RD","Mutual Fund","Stock","Gold","PPF","NPS","Bond","Other"]} />
         </div>
         <div><Label className="text-xs">Institution</Label><Input value={institution} onChange={(e) => setInstitution(e.target.value)} /></div>
-        <div><Label className="text-xs">Amount</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+        <div><Label className="text-xs">Total Amount</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
         <div><Label className="text-xs">Source</Label>
           <Select value={source} onValueChange={setSource}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>{["Fresh Income","Reinvestment","Partial Reinvestment"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
           </Select>
         </div>
+        {source === "Partial Reinvestment" && (
+          <>
+            <div><Label className="text-xs">Rollover from maturity</Label>
+              <Input type="number" value={rollover} onChange={(e) => setRollover(e.target.value)} placeholder="Old money" />
+            </div>
+            <div><Label className="text-xs">Fresh top-up (auto)</Label>
+              <Input value={inr(freshCalc)} readOnly className="bg-muted" />
+            </div>
+          </>
+        )}
         <div><Label className="text-xs">Paid From</Label>
           <Select value={bankId} onValueChange={setBankId}>
             <SelectTrigger><SelectValue placeholder="Bank" /></SelectTrigger>
