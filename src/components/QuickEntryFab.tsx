@@ -556,6 +556,7 @@ function InvestmentQuick({ onDone }: { onDone: () => void }) {
       user_id: user.id, date, investment_type: type, institution: institution || null,
       amount: Number(amount), source_of_funds: source, bank_account_id: bankId || null,
       maturity_date: maturityDate || null, status: "Active", notes: note || null,
+      fresh_topup_amount: source === "Partial Reinvestment" ? freshCalc : null,
     };
     if (isFD) { payload.fd_number = fdNumber; payload.fd_type = fdType; }
     if (isMF) { payload.folio_number = folioNumber || null; payload.isin = isin || null; payload.units = units ? Number(units) : null; payload.nav_at_purchase = nav ? Number(nav) : null; }
