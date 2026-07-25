@@ -520,6 +520,8 @@ function InvestmentQuick({ onDone }: { onDone: () => void }) {
   const [type, setType] = useState("FD");
   const [institution, setInstitution] = useState("");
   const [amount, setAmount] = useState("");
+  const [rollover, setRollover] = useState("");
+  const freshCalc = useMemo(() => Math.max(0, (Number(amount) || 0) - (Number(rollover) || 0)), [amount, rollover]);
   const [source, setSource] = useState("Fresh Income");
   const [bankId, setBankId] = useState("");
   const [maturityDate, setMaturityDate] = useState("");
