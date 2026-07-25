@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Check } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -15,9 +15,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useMembers, useBankAccounts, useCreditCards, useEmis, useInvestments } from "@/lib/data-hooks";
 import { useExpenseCategories, DEFAULT_CATEGORIES } from "@/lib/expense-hooks";
-import { today } from "@/lib/format";
+import { today, inr } from "@/lib/format";
 import { getTDSSection, getTDSSectionByCode } from "@/lib/tds-constants";
 import { TDSSectionPicker } from "@/components/forms/IncomeForm";
+import { TypeSelect } from "@/components/TypeSelect";
 import { cn } from "@/lib/utils";
 
 type Tab = "expense" | "income" | "investment" | "transfer" | "cc" | "emi";
@@ -482,10 +483,8 @@ function IncomeQuick({ onDone }: { onDone: () => void }) {
       <div className="grid grid-cols-2 gap-3">
         <div><Label className="text-xs">Gross Amount</Label><Input type="number" value={gross} onChange={(e) => setGross(e.target.value)} /></div>
         <div><Label className="text-xs">Type</Label>
-          <Select value={type} onValueChange={setType}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{["Salary","Business Income","FD Maturity","Dividend","Interest","Rental","Other"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-          </Select>
+          <TypeSelect value={type} onChange={setType} kind="income"
+            base={["Salary","Business Income","FD Maturity","Dividend","Interest","Rental","Other"]} />
         </div>
         <div className="col-span-2">
           <Label className="text-xs">TDS Section</Label>
