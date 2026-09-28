@@ -190,7 +190,7 @@ function ImportStatusPage() {
             </TableRow></TableHeader>
             <TableBody>
               {(batches.data ?? []).map((b) => (
-                <TableRow key={b.id}>
+                <TableRow key={b.id} id={`batch-${b.id}`} className="target:bg-primary/10">
                   <TableCell className="text-xs">{fmtDate(b.imported_at)}</TableCell>
                   <TableCell>{acctName(b.account_id)}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{b.bank_name ?? "—"}</TableCell>
