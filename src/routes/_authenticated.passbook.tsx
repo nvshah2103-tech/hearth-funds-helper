@@ -20,6 +20,7 @@ import { downloadCSV } from "@/lib/csv";
 import { downloadXLSX, printHTMLToPDF } from "@/lib/export";
 import { Download, Filter, Search, ChevronDown, Upload, FileSpreadsheet, Printer, FileText } from "lucide-react";
 import { ImportPdfDialog } from "@/components/ImportPdfDialog";
+import { TxnDetailDrawer, extractUpi, type TxnDetail } from "@/components/TxnDetailDrawer";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/_authenticated/passbook")({ component: PassbookPage });
@@ -47,6 +48,11 @@ type Row = {
   transferToId?: string;
   transferToName?: string;
   source: Source;
+  reference?: string | null;
+  fingerprint?: string | null;
+  batchId?: string | null;
+  stmtBalance?: number | null;
+  notes?: string | null;
 };
 
 const ALL_CATEGORIES: Category[] = [
@@ -168,6 +174,8 @@ function PassbookPage() {
         direction: isCredit ? "credit" : "debit",
         amount: amt,
         source: "I",
+        reference: x.reference_no, fingerprint: x.fingerprint_hash ?? x.fingerprint,
+        batchId: x.import_batch_id, stmtBalance: x.balance, notes: x.notes,
       });
     }
     out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
@@ -177,6 +185,7 @@ function PassbookPage() {
   // ---- Filter state ----
   const [selAccts, setSelAccts] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
+  const [detail, setDetail] = useState<TxnDetail | null>(null);
   const [selMembers, setSelMembers] = useState<Set<string>>(new Set());
   const [selCats, setSelCats] = useState<Set<Category>>(new Set());
   const [rangeKey, setRangeKey] = useState<RangeKey>("thisFY");
@@ -513,7 +522,7 @@ function PassbookPage() {
                   const isBroker = r.category === "Broker Payout";
                   const muted = isTransfer || isBroker;
                   return (
-                    <TableRow key={r.id} className={muted ? "opacity-70" : ""}>
+                    <TableRow key={r.id} className={`cursor-pointer hover:bg-muted/50 ${muted ? "opacity-70" : ""}`} onClick={() => setDetail({ ...r, balance: r.stmtBalance, upiId: extractUpi(r.description) })}>
                       <TableCell className="font-mono text-xs">{fmtDate(r.date)}</TableCell>
                       <TableCell className="max-w-[320px]">
                         <div className="truncate" title={r.description}>{r.description}</div>
@@ -546,6 +555,7 @@ function PassbookPage() {
           </div>
         </CardContent>
       </Card>
+      <TxnDetailDrawer txn={detail} onOpenChange={(o) => !o && setDetail(null)} />
     </div>
   );
 }
