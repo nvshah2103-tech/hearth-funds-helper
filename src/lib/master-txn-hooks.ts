@@ -15,6 +15,8 @@ export type MasterTxn = {
   is_broker_payout: boolean;
   import_batch_id: string | null;
   notes: string | null;
+  fingerprint: string;
+  fingerprint_hash: string | null;
 };
 
 export type ImportBatch = {
