@@ -73,7 +73,8 @@ export function ImportPdfDialog({ open, onOpenChange, defaultAccountId }: {
       setStep("confirm");
       if (pw && acct?.bank_name) setHint(acct.bank_name, "Saved · last used " + new Date().toLocaleDateString());
     } catch (e) {
-      if (e instanceof PasswordRequiredError) {
+      const message = e instanceof Error ? e.message : "";
+      if (e instanceof PasswordRequiredError || /password|encrypted/i.test(message)) {
         setPwWrong(e.incorrect);
         if (acct?.bank_name) setPwHint(getHint(acct.bank_name) ?? "");
         setStep("password");
@@ -315,7 +316,8 @@ export function ImportPdfDialog({ open, onOpenChange, defaultAccountId }: {
             <AlertTriangle className="h-10 w-10 mx-auto text-destructive" />
             <p className="text-sm">{error}</p>
             <DialogFooter>
-              <Button variant="outline" onClick={() => close(false)}>Close</Button>
+             {file && <Button variant="outline" onClick={() => setStep("password")}>Try a password</Button>}
+             <Button variant="outline" onClick={() => close(false)}>Close</Button>
               <Button onClick={reset}>Try again</Button>
             </DialogFooter>
           </div>

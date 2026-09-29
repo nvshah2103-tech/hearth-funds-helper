@@ -24,6 +24,10 @@ export class PasswordRequiredError extends Error {
 
 /** Merge visually-adjacent items on the same Y into cluster tokens.
  *  Fixes cases where "1,23,456.78" was split into ["1", ",23", ",456.78"]. */
+function looksLikeAmount(value: string) {
+  return /^[-₹]?(?:\d{1,3}(?:,\d{2,3})+|\d+)(?:\.\d{1,2})?(?:\s?(?:Cr|Dr))?$/i.test(value.trim());
+}
+
 function mergeAdjacent(items: { x: number; s: string; w: number }[]): LineToken[] {
   if (!items.length) return [];
   items.sort((a, b) => a.x - b.x);
@@ -32,7 +36,8 @@ function mergeAdjacent(items: { x: number; s: string; w: number }[]): LineToken[
   for (const it of items) {
     const last = out[out.length - 1];
     const gap = last ? it.x - (last.x + last.width) : Infinity;
-    if (last && gap <= GAP) {
+    const bothAmounts = last && looksLikeAmount(last.s) && looksLikeAmount(it.s);
+    if (last && gap <= GAP && !bothAmounts) {
       last.s += it.s;
       last.width = it.x + it.w - last.x;
     } else {
@@ -64,20 +69,23 @@ export async function extractPdfLines(
     const page = await pdf.getPage(p);
     const viewport = page.getViewport({ scale: 1 });
     const content = await page.getTextContent();
-    const buckets = new Map<number, { y: number; items: { x: number; s: string; w: number }[] }>();
+    const buckets: { y: number; items: { x: number; s: string; w: number }[] }[] = [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const it of content.items as any[]) {
       const s = String(it.str ?? "");
       if (!s.trim()) continue;
       const tr = it.transform as number[];
-      const y = Math.round(tr[5] / 2) * 2;
+      const y = tr[5];
       const x = tr[4];
       const w = Number(it.width ?? Math.max(2, s.length * 4));
-      const b = buckets.get(y) ?? { y, items: [] };
+      let b = buckets.find((candidate) => Math.abs(candidate.y - y) <= 3.5);
+      if (!b) {
+        b = { y, items: [] };
+        buckets.push(b);
+      }
       b.items.push({ x, s, w });
-      buckets.set(y, b);
     }
-    for (const b of buckets.values()) {
+    for (const b of buckets) {
       const tokens = mergeAdjacent(b.items);
       const text = tokens.map((t) => t.s).join(" ").replace(/\s+/g, " ").trim();
       if (text) lines.push({ page: p, y: b.y, text, tokens, pageWidth: viewport.width });

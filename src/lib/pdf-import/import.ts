@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { makeFingerprint } from "./fingerprint";
+import { makeFingerprint, makeLegacyFingerprint, normalizeDesc } from "./fingerprint";
 import type { ParsedTxn } from "./parsers";
 
 export type ImportProgress = {
@@ -29,16 +29,21 @@ export async function runImport(args: {
   const { userId, accountId, bankName, txns, onProgress } = args;
 
   // 1. Compute fingerprints for all
-  const withFp = await Promise.all(
-    txns.map(async (t) => ({
+  const seenInFile = new Map<string, number>();
+  const withFp = await Promise.all(txns.map(async (t) => {
+    const base = `${t.date}|${(t.credit - t.debit).toFixed(2)}|${normalizeDesc(t.description)}`;
+    const occurrence = seenInFile.get(base) ?? 0;
+    seenInFile.set(base, occurrence + 1);
+    return {
       ...t,
-      fingerprint: await makeFingerprint(userId, accountId, t.date, t.debit, t.credit, t.description),
-    })),
-  );
+      fingerprint: await makeFingerprint(userId, accountId, t.date, t.debit, t.credit, t.description, t.balance, occurrence),
+      legacyFingerprint: await makeLegacyFingerprint(userId, accountId, t.date, t.debit, t.credit, t.description),
+    };
+  }));
 
   // 2. BULK dedup: fetch existing fingerprints for this user (one query)
   onProgress?.({ phase: "dedup", done: 0, total: withFp.length });
-  const fps = withFp.map((t) => t.fingerprint);
+  const fps = withFp.flatMap((t) => [t.fingerprint, t.legacyFingerprint]);
   const existing = new Set<string>();
   // chunk the IN() filter to avoid URL length limits
   for (let i = 0; i < fps.length; i += 500) {
@@ -51,7 +56,7 @@ export async function runImport(args: {
     if (error) throw error;
     for (const r of data ?? []) existing.add((r as { fingerprint: string }).fingerprint);
   }
-  const fresh = withFp.filter((t) => !existing.has(t.fingerprint));
+  const fresh = withFp.filter((t) => !existing.has(t.fingerprint) && !existing.has(t.legacyFingerprint));
   const skipped = withFp.length - fresh.length;
 
   // 3. Create import batch

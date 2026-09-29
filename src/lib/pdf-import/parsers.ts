@@ -106,8 +106,8 @@ type ColHeader = { key: ColKey; xStart: number; xEnd: number; xCenter: number };
 const HEADER_KW: Record<ColKey, RegExp> = {
   date: /^(txn|value|posting|effective|entry)?\.?\s*(date|dt)$/i,
   desc: /^(particulars|narration|description|remarks|details|transaction\s+details|transactionparticulars)$/i,
-  debit: /^(debit|withdrawal|withdrawals|withdrawal\s+amt|withdrawal\s+amount|dr|dr\.|paid\s*out|out\s*flow)$/i,
-  credit: /^(credit|deposit|deposits|deposit\s+amt|deposit\s+amount|cr|cr\.|paid\s*in|in\s*flow)$/i,
+  debit: /^(debit|withdrawal|withdrawals|withdrawal\s+(amt|amount)(\(rs\.?\))?|debit\s+(amt|amount)(\(rs\.?\))?|dr|dr\.|paid\s*out|out\s*flow)$/i,
+  credit: /^(credit|deposit|deposits|deposit\s+(amt|amount)(\(rs\.?\))?|credit\s+(amt|amount)(\(rs\.?\))?|cr|cr\.|paid\s*in|in\s*flow)$/i,
   balance: /^(balance|closing\s+balance|running\s+balance|bal|bal\.|available\s+balance)$/i,
   ref: /^(chq|ref|reference|utr|cheque|chq\.\/ref)\.?\s*(no|number)?$/i,
 };
@@ -120,12 +120,21 @@ function detectHeaderRow(lines: ExtractedLine[]): ColHeader[] | null {
     if (parseDateToken(line.tokens[0]?.s ?? "")) continue;
 
     // Try token-level, then also try 2-token combos (e.g. "Withdrawal" + "Amount")
+    const next = lines[li + 1];
+    const samePageNext = next && next.page === line.page && Math.abs(next.y - line.y) < 28 ? next.tokens : [];
+    const headerTokens = [...line.tokens];
+    for (const token of samePageNext) {
+      const nearest = line.tokens.find((candidate) => Math.abs(candidate.x - token.x) < 20);
+      if (nearest) nearest.s = `${nearest.s} ${token.s}`;
+      else headerTokens.push({ ...token });
+    }
+    headerTokens.sort((a, b) => a.x - b.x);
     const hits: ColHeader[] = [];
     const marked = new Set<number>();
-    for (let i = 0; i < line.tokens.length; i++) {
+    for (let i = 0; i < headerTokens.length; i++) {
       if (marked.has(i)) continue;
-      const t = line.tokens[i];
-      const t2 = line.tokens[i + 1];
+      const t = headerTokens[i];
+      const t2 = headerTokens[i + 1];
       const joined2 = t2 ? `${t.s} ${t2.s}` : "";
       for (const [key, re] of Object.entries(HEADER_KW) as [ColKey, RegExp][]) {
         if (re.test(t.s.trim())) {
@@ -190,9 +199,10 @@ function nearestColumn(x: number, cols: ColHeader[]): ColHeader | null {
 function assignAmountsByColumn(
   amountTokens: { tok: LineToken; val: number; sign: "cr" | "dr" | "" }[],
   cols: ColHeader[],
-): { debit: number; credit: number; balance: number | null } {
+): { debit: number; credit: number; balance: number | null; ambiguous: boolean } {
   let debit = 0, credit = 0;
   let balance: number | null = null;
+  let ambiguous = false;
 
   // Balance is (almost) always the right-most amount, whatever the layout.
   // But: if we have a proper header, prefer the token nearest the "balance" column.
@@ -223,18 +233,20 @@ function assignAmountsByColumn(
       const nearest = nearestColumn(a.tok.x + a.tok.width / 2, [debitCol, creditCol]);
       if (nearest?.key === "credit") credit += a.val;
       else debit += a.val;
-    } else if (debitCol) {
-      debit += a.val;
-    } else if (creditCol) {
-      credit += a.val;
+    } else if (debitCol || creditCol) {
+      const known = debitCol ?? creditCol;
+      const center = a.tok.x + a.tok.width / 2;
+      if (known && Math.abs(center - known.xCenter) < Math.max(known.xEnd - known.xStart, 28)) {
+        if (known.key === "credit") credit += a.val;
+        else debit += a.val;
+      } else {
+        ambiguous = true;
+      }
     } else {
-      // No header: fall back to positional heuristic – last amount was balance
-      // (already popped), so remaining are txn amounts.
-      // If 2 remain → [debit, credit] pattern; pick non-zero.
-      debit += a.val;
+      ambiguous = true;
     }
   }
-  return { debit, credit, balance };
+  return { debit, credit, balance, ambiguous };
 }
 
 /** Extract all amount tokens from a line (with x-coord + sign). */
@@ -310,7 +322,7 @@ export function parseStatement(lines: ExtractedLine[]): ParsedTxn[] {
     if (!amts.length) continue; // date-only header row (e.g. daily total)
 
     const desc = buildDescription(l.tokens, dateHit.endIndex, cols);
-    const { debit, credit, balance } = assignAmountsByColumn(amts.slice(), cols ?? []);
+    const { debit, credit, balance, ambiguous } = assignAmountsByColumn(amts.slice(), cols ?? []);
 
     // Reference: any long digit run in description
     const refMatch = desc.match(/\b(\d{8,})\b/);
@@ -322,8 +334,8 @@ export function parseStatement(lines: ExtractedLine[]): ParsedTxn[] {
       credit,
       balance,
       reference: refMatch ? refMatch[1] : null,
-      confidence: "high",
-      needsReview: false,
+      confidence: ambiguous ? "low" : "high",
+      needsReview: ambiguous,
     };
     if (debit === 0 && credit === 0) {
       txn.confidence = "low";
@@ -338,8 +350,7 @@ export function parseStatement(lines: ExtractedLine[]): ParsedTxn[] {
   // ------- Reconciliation pass: verify running balance -------
   reconcileConfidence(out);
 
-  // Filter out zero rows we still couldn't classify
-  return out.filter((t) => t.debit > 0 || t.credit > 0);
+  return out;
 }
 
 /** Walk the transactions in file order; where balance is present, verify that
@@ -358,6 +369,7 @@ function reconcileConfidence(txns: ParsedTxn[]) {
   }
   const ratio = checks ? matches / checks : 1;
   for (const t of txns) {
+    if (t.needsReview) continue;
     if (ratio >= 0.9) t.confidence = "high";
     else if (ratio >= 0.6) t.confidence = "medium";
     else { t.confidence = "low"; t.needsReview = true; }
