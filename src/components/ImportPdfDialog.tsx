@@ -75,7 +75,7 @@ export function ImportPdfDialog({ open, onOpenChange, defaultAccountId }: {
     } catch (e) {
       const message = e instanceof Error ? e.message : "";
       if (e instanceof PasswordRequiredError || /password|encrypted/i.test(message)) {
-        setPwWrong(e.incorrect);
+        setPwWrong(e instanceof PasswordRequiredError ? e.incorrect : false);
         if (acct?.bank_name) setPwHint(getHint(acct.bank_name) ?? "");
         setStep("password");
         return;
